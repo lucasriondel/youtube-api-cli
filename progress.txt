@@ -208,3 +208,21 @@
     - Pagination warning: --max=51 prints "warning: --max=51 will require up to 2 calls = up to 200 quota units"; --max=200 prints "up to 4 calls = up to 400 quota units". Default --max=25 silent (single call).
     - Live API call: `search "go programming language" --max=3` returned 1 video (Fireship "Go in 100 Seconds") + 2 playlists with correct TYPE distinction. `search "go programming" --max=2 --type=channel` returned 2 channels with TYPE=channel and channel-style 24-char ids in the ID column. `search "golang" --max=1 --json` returned the raw youtube#searchResult object including etag, snippet.channelId, snippet.thumbnails — confirmed JSON output is the unmodified API shape.
   - Milestone 3 item 9 now complete (✅ in PRD). Next milestone-3 priorities: subs list, channels show (item 10).
+
+2026-05-01: Implemented `yt subs list` (Milestone 3, item 10a — first piece of subs list / channels show bundle).
+  - New files: internal/cmd/subs.go (top-level group), internal/cmd/subs_list.go
+  - Wired newSubsCmd() into root.go alongside auth/playlists/items/videos/liked/search/cache
+  - Args: cobra.NoArgs (mine=true is implicit; no per-channel lookup mode for now). Flag: --order {alphabetical|relevance|unread}, default "alphabetical" (matches the YouTube UI's default sort, more useful than the API's "relevance" default for an "audit my subs" use case).
+  - validateSubsOrder() rejects bogus values pre-API with "invalid --order ... want one of: alphabetical, relevance, unread".
+  - Pagination loop: subscriptions.list(mine=true, parts=id+snippet+contentDetails) at MaxResults(50) per page; loops until NextPageToken empties. No cap flag — full sub list is what users want; can add --max if anyone hits a real limit.
+  - Quota cost: 1 unit per page (ytapi.CostList) — documented in --help. A 200-sub account pays 4 units to enumerate everything.
+  - Columns: SUB_ID / CHANNEL_ID / TITLE / ITEMS / SUBSCRIBED. SUB_ID is the subscription resource id (the value `subs remove` will need); CHANNEL_ID is snippet.resourceId.channelId (what users actually identify the channel by). ITEMS is contentDetails.totalItemCount (approximate count of new items at sub time per the API docs — useful for "is this channel still active"). SUBSCRIBED is snippet.publishedAt sliced to YYYY-MM-DD UTC, falls back to raw string on parse failure.
+  - JSON output is the raw []*youtube.Subscription slice (not a CLI-specific shape) — agents/jq can pull the full snippet/thumbnails/contentDetails. Plain output is TSV mirroring the table columns. No --dry-run (read-only).
+  - Verified:
+    - go build clean, go vet ./... clean, go test ./... pass (cache tests still 6/6, no new test files).
+    - `yt subs --help` lists the `list` subcommand.
+    - `yt subs list --help` shows quota cost, --order flag default + accepted values.
+    - `yt --help` lists `subs` alongside other top-level commands.
+    - Pre-API errors: --order=bogus → exit 1, "invalid --order ..." pre-API. Extra positional arg → exit 1, "unknown command" pre-API.
+    - Live API call: `subs list` against the authenticated account returned 200+ subscriptions in alphabetical order with correct SUB_ID/CHANNEL_ID/TITLE/ITEMS/SUBSCRIBED rendering. SUB_IDs are 43-char strings (e.g. ZLqTlaC6RT-tguBTAVXhu3OL7U2PjRtqdTPkn2edrsI), CHANNEL_IDs are 24-char UC... ids (e.g. UCXMq1fqwkAD_Ol0HeInZrwg). `subs list --json` returned raw youtube#subscription objects with etag, snippet.thumbnails, snippet.resourceId.channelId, contentDetails.totalItemCount preserved.
+  - Did NOT bundle `channels show` into this task per the single-task constraint — that's the second half of Milestone 3 item 10 and lands next. PRD updated to reflect the partial completion (subs list ✅, channels show 🎯).

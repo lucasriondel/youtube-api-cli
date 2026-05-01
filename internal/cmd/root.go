@@ -27,6 +27,7 @@ func NewRoot() *cobra.Command {
 	root.AddCommand(newVideosCmd())
 	root.AddCommand(newLikedCmd())
 	root.AddCommand(newSearchCmd())
+	root.AddCommand(newSubsCmd())
 	root.AddCommand(newCacheCmd())
 	return root
 }

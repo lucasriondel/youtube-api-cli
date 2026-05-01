@@ -96,7 +96,7 @@ API methods: `list`, `insert`, `delete`. Cost: 1 / 50 / 50.
 
 | Command | API call | Status | Notes |
 |---|---|---|---|
-| `yt subs list [--mine]` | `subscriptions.list (mine=true)` | 🎯 | |
+| `yt subs list` | `subscriptions.list (mine=true)` | ✅ | 1 unit per page (50 subs/page). `--order` accepts alphabetical (default) / relevance / unread. JSON output is the raw `[]*youtube.Subscription` slice. |
 | `yt subs add <channel-id>` | `subscriptions.insert` | 📋 | 50 units. |
 | `yt subs remove <subscription-id>` | `subscriptions.delete` | 📋 | Takes subscription resource id, not channel id. |
 
@@ -253,7 +253,7 @@ The order below resolves the loose ordering in CLAUDE.md against the gaps above.
    - ✅ `videos rate`
    - ✅ `videos rating` (batched videos.getRating, 1 unit/50 ids)
 9. ✅ `search "<query>"` with loud quota warning
-10. `subs list`, `channels show`
+10. 🚧 `subs list` ✅, `channels show` 🎯
 
 ### Milestone 4 — secondary surfaces
 11. `subs add` / `remove`
