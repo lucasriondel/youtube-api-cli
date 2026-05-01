@@ -68,7 +68,7 @@ API methods: `list`, `insert`, `update`, `delete`, `rate`, `getRating`, `reportA
 |---|---|---|---|
 | `yt videos show <id>...` | `videos.list (id=...)` | ✅ | snippet,contentDetails,statistics,status. Accepts raw ids or URLs. Batched 50 ids per call (1 unit/batch). Warns on stderr for ids the API didn't return. |
 | `yt videos mine` | `videos.list (myRating=like)` + own channel uploads | 📋 | Convenience for "my uploads". |
-| `yt videos rate <id> --as=like\|dislike\|none` | `videos.rate` | 🎯 | 50 units. |
+| `yt videos rate <id> --as=like\|dislike\|none` | `videos.rate` | ✅ | 50 units. Accepts raw ids or URLs. Supports `--dry-run`. |
 | `yt videos rating <id>...` | `videos.getRating` | 🎯 | |
 | `yt videos update <id> [--title --description --tags --category]` | `videos.update` | 📋 | Patch semantics. |
 | `yt videos delete <id>` | `videos.delete` | 📋 | Confirm prompt. |
@@ -248,9 +248,10 @@ The order below resolves the loose ordering in CLAUDE.md against the gaps above.
 7. ✅ `items dedupe` (group by videoId, `--keep=first|last`, `--dry-run`, >1000-unit confirmation)
 
 ### Milestone 3 — discovery & ratings
-8. ✅ `liked list` / `videos rate` / `videos rating`
+8. 🚧 `liked list` / `videos rate` / `videos rating`
    - ✅ `liked list` (channels.list + cached playlistItems.list)
-   - 🎯 `videos rate`, `videos rating`
+   - ✅ `videos rate`
+   - 🎯 `videos rating`
 9. `search "<query>"` with loud quota warning
 10. `subs list`, `channels show`
 

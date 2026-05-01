@@ -8,5 +8,6 @@ func newVideosCmd() *cobra.Command {
 		Short: "Inspect and manage videos",
 	}
 	c.AddCommand(newVideosShowCmd())
+	c.AddCommand(newVideosRateCmd())
 	return c
 }

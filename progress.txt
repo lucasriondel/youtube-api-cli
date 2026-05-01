@@ -152,3 +152,21 @@
   - No --dry-run (read-only), no confirmation prompt — matches the pattern set by `items list` / `playlists list`.
   - Verified: go build clean, go vet clean, go test ./... pass (cache tests still 6/6). `yt liked --help` lists the `list` subcommand. `yt liked list --help` shows quota cost + --no-cache flag. Live call against the authenticated account returned 250+ liked videos with correct POS/ITEM_ID/VIDEO_ID/TITLE/CHANNEL rendering. Second invocation hit the etag cache (same row count, no quota burn beyond the 1-unit channels.list).
   - Did NOT bundle `videos rate` and `videos rating` into the same task per the single-task constraint — those land in a follow-up commit. PRD updated to reflect the partial completion of Milestone 3 item 8.
+
+2026-05-01: Implemented `yt videos rate <id> --as=like|dislike|none` (Milestone 3, item 8b).
+  - New file: internal/cmd/videos_rate.go
+  - Wired into videos.go subcommand list alongside `show`
+  - Args: <id-or-url>; cobra.ExactArgs(1). Reuses parseVideoID() so raw 11-char ids and watch?v=/youtu.be/shorts/embed/v URLs are all accepted; invalid refs error pre-API.
+  - Required flag --as validated against like|dislike|none in RunE; bogus values error pre-API with "invalid --as ... (want one of: like, dislike, none)". MarkFlagRequired("as") fires the missing-flag error before arg validation.
+  - Quota: 50 units per call (ytapi.CostRate). Documented in --help.
+  - Single svc.Videos.Rate(videoID, rating).Context(ctx).Do() call — the YouTube API endpoint POSTs to videos/rate?id=...&rating=... and returns no body, so there's no response object to render. On success prints "Rated video id=… as=…" to stdout.
+  - --dry-run prints "DRY RUN: would set rating=R on video V (cost: 50 units)" on stderr and exits without calling the API. Uses the shared printDryRun() helper for consistent format.
+  - No --json/--plain output: this is a fire-and-forget endpoint with no resource to render. The success line is stable and parseable enough for agents (`grep "Rated video id="`).
+  - Verified: go build clean, go vet clean, go test ./... clean (cache tests still 6/6). `videos rate --help` documents the 50-unit cost and --as values. Edge cases:
+    - `videos rate dQw4w9WgXcQ --as=bogus` → exit 1, "invalid --as ..." pre-API.
+    - `videos rate dQw4w9WgXcQ` (missing --as) → exit 1, "required flag(s) \"as\" not set" pre-API.
+    - `videos rate --as=like` (missing arg) → exit 1, "accepts 1 arg(s), received 0" pre-API.
+    - `videos rate dQw4w9WgXcQ --as=like --dry-run` → "DRY RUN: would set rating=like on video dQw4w9WgXcQ (cost: 50 units)", no API call.
+    - `videos rate "https://youtu.be/dQw4w9WgXcQ" --as=none --dry-run` → URL parsed correctly to dQw4w9WgXcQ.
+    - Live API call: `videos rate dQw4w9WgXcQ --as=none` returned exit 0, "Rated video id=dQw4w9WgXcQ as=none".
+  - Did NOT bundle `videos rating` (videos.getRating) into this task per the single-task constraint — that lands next, completing Milestone 3 item 8.
