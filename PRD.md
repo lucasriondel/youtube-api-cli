@@ -132,7 +132,7 @@ Cost: **100 units** per call — expensive. Per CLAUDE.md, document quota cost i
 
 | Command | Status | Notes |
 |---|---|---|
-| `yt search "<query>" [--type=video\|channel\|playlist] [--max=50] [--channel <id>]` | 🎯 | One call = 100 units; warn loudly if `--max` would force pagination. |
+| `yt search "<query>" [--type=video\|channel\|playlist\|any] [--max=N] [--channel <id>] [--order=...]` | ✅ | 100 units per call (one page = up to 50 results). `--max>50` forces additional 100-unit calls and emits a loud stderr warning before spending the extra quota. `--order` accepts relevance/date/rating/viewCount/title. JSON output is the raw `[]*youtube.SearchResult` slice. |
 
 ---
 
@@ -252,7 +252,7 @@ The order below resolves the loose ordering in CLAUDE.md against the gaps above.
    - ✅ `liked list` (channels.list + cached playlistItems.list)
    - ✅ `videos rate`
    - ✅ `videos rating` (batched videos.getRating, 1 unit/50 ids)
-9. `search "<query>"` with loud quota warning
+9. ✅ `search "<query>"` with loud quota warning
 10. `subs list`, `channels show`
 
 ### Milestone 4 — secondary surfaces

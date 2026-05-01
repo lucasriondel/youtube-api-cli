@@ -185,3 +185,26 @@
     - `videos rating "https://youtu.be/"` → exit 1, "could not extract video id from URL" pre-API.
     - Live API call: `videos rating dQw4w9WgXcQ` returned exit 0 with VIDEO_ID=dQw4w9WgXcQ RATING=none. JSON output (`--json`) returned the raw [{"rating":"none","videoId":"dQw4w9WgXcQ"}] slice.
   - Milestone 3 item 8 is now complete (liked list ✅, videos rate ✅, videos rating ✅). Next milestone-3 priorities per PRD: search "<query>" with quota warning, then subs list / channels show.
+
+2026-05-01: Implemented `yt search "<query>"` (Milestone 3, item 9).
+  - New file: internal/cmd/search.go (top-level command, mounted directly on root alongside auth/playlists/items/videos/liked/cache — search isn't a group, just one command).
+  - Wired newSearchCmd() into root.go.
+  - Args: <query>; cobra.ExactArgs(1). Empty/whitespace-only query rejected pre-API.
+  - Flags:
+    - --type {video|channel|playlist|any} default "any". Validated in RunE; "any" omits the Type() call so the API returns the natural mixed results, anything else passes through to call.Type().
+    - --max <int> default 25. Hard cap implemented as a per-page slice (min(remaining, 50)) — search.list returns up to 50 per page, and the loop accumulates until --max is reached or NextPageToken is empty. --max <= 0 errors pre-API.
+    - --channel <id> empty-string default; non-empty passes to call.ChannelId() so search is scoped to a single channel.
+    - --order {relevance|date|rating|viewCount|title} default "relevance". Validated in RunE; passes through to call.Order().
+  - Quota cost: ytapi.CostSearchList (100 units) per call. --help text uses the constant: "Quota cost: 100 units per call ... default daily quota of 10,000 units is 100 searches" — math computed from the constant so it stays correct if Google reprices.
+  - LOUD pre-call warning: when --max > 50 (i.e. estimatedPages = (max+49)/50 > 1), prints to stderr "warning: --max=N will require up to P calls = up to P*100 quota units (search.list is 100 units/call)" BEFORE making the first call. Per PRD requirement: "warn loudly if --max would force pagination". Single-call invocations (default --max=25, or --max=50) print no warning since they're already 1 call.
+  - Output: TYPE / ID / TITLE / CHANNEL / PUBLISHED columns. TYPE is derived from r.Id (video/channel/playlist) — search results are heterogeneous so the column distinguishes them. ID is the appropriate per-type id (videoId / channelId / playlistId). PUBLISHED is reformatted from RFC3339 → YYYY-MM-DD UTC, falls back to raw string on parse failure (matches videos show).
+  - JSON output is the raw []*youtube.SearchResult slice (raw API objects per CLAUDE.md output convention) — agents/`jq` can pull etag, snippet.thumbnails, snippet.description, etc. Plain output is TSV mirroring the table columns.
+  - No --dry-run: read-only command (no mutations), and the command is paid-but-cheap to estimate — the warning + --help cost line make the cost obvious before the user commits.
+  - Verified:
+    - go build clean, go vet ./... clean, go test ./... pass (cache tests still 6/6, no new test files).
+    - `yt search --help` shows the full quota math + flag list with sensible defaults.
+    - `yt --help` lists `search` alongside the other top-level commands with the cost called out in Short.
+    - Pre-API errors: missing arg → "accepts 1 arg(s), received 0"; empty query → "empty search query"; --type=bogus → "invalid --type ... want one of: any, video, channel, playlist"; --order=bogus → "invalid --order ... want one of: relevance, date, rating, viewCount, title"; --max=0 → "--max must be > 0". All exit 1 with no API call.
+    - Pagination warning: --max=51 prints "warning: --max=51 will require up to 2 calls = up to 200 quota units"; --max=200 prints "up to 4 calls = up to 400 quota units". Default --max=25 silent (single call).
+    - Live API call: `search "go programming language" --max=3` returned 1 video (Fireship "Go in 100 Seconds") + 2 playlists with correct TYPE distinction. `search "go programming" --max=2 --type=channel` returned 2 channels with TYPE=channel and channel-style 24-char ids in the ID column. `search "golang" --max=1 --json` returned the raw youtube#searchResult object including etag, snippet.channelId, snippet.thumbnails — confirmed JSON output is the unmodified API shape.
+  - Milestone 3 item 9 now complete (✅ in PRD). Next milestone-3 priorities: subs list, channels show (item 10).
