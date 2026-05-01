@@ -9,5 +9,6 @@ func newSubsCmd() *cobra.Command {
 	}
 	c.AddCommand(newSubsListCmd())
 	c.AddCommand(newSubsAddCmd())
+	c.AddCommand(newSubsRemoveCmd())
 	return c
 }

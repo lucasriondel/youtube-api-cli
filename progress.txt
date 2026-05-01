@@ -257,3 +257,22 @@
     - Pre-API errors: `subs add` (no args) → exit 1, "requires at least 1 arg(s), only received 0". `subs add ""` → exit 1, "invalid channel id \"\": empty value".
     - `subs add UCXMq1fqwkAD_Ol0HeInZrwg --dry-run` → "DRY RUN: would subscribe to 1 channel(s) (cost: 50 units)" + CHANNEL_ID table. `subs add UCfoo UCbar --dry-run` → "(cost: 100 units)". `--dry-run --json` → the dry-run line on stderr, the raw []string slice on stdout (["UCfoo","UCbar"]).
   - Did NOT bundle `subs remove` into this task per the single-task constraint — that's the second half of Milestone 4 item 11 and lands next. Did NOT execute a real subscribe against a live channel (would mutate the user's account); the dry-run path exercises every code path except svc.Subscriptions.Insert, which mirrors items_add's already-tested insert flow.
+
+2026-05-01: Implemented `yt subs remove <subscription-id>...` (Milestone 4, item 11b) — completes Milestone 4 item 11.
+  - New file: internal/cmd/subs_remove.go
+  - Wired into subs.go alongside `list` and `add`
+  - Args: one or more subscription resource ids; cobra.MinimumNArgs(1). Each arg trimmed and rejected if empty pre-API ("invalid subscription id \"\": empty value"). Long help spells out the SUB_ID-vs-channelId distinction prominently — the API only accepts the per-account subscription resource id (the SUB_ID column from `subs list`), not channel ids (UC...). Same disambiguation pattern as items_remove's playlistItemId-vs-videoId note.
+  - Quota cost: 50 units per subscription (ytapi.CostDelete) — documented in --help. Sequential subscriptions.delete calls per id (the API method takes one id per call, no batching). First failure aborts and surfaces the offending subId in the error wrap.
+  - --dry-run uses the shared printDryRun() helper: prints "DRY RUN: would unsubscribe from N subscription(s) (cost: 50N units)" on stderr + the raw list of ids on stdout (one per line, mirrors items_remove's plain output for ids). No API call, no confirmation prompt.
+  - Confirmation gate (mirrors items_remove): when not --yes and not --dry-run, prints "About to remove N subscription(s). This cannot be undone.\nType 'yes' to confirm: " on stderr and reads from cmd.InOrStdin(). Any input other than literal "yes" aborts with exit 1 / "aborted" before any API call.
+  - On success prints "Removed subscription id=…" per delete (no resource body to render — subscriptions.delete returns 204 No Content, same as playlistItems.delete).
+  - No --json/--plain output structure beyond the dry-run id list: this is a fire-and-forget endpoint with no response payload; the success line is stable enough for agents (`grep "Removed subscription id="`).
+  - Verified:
+    - go build clean, go vet ./... clean, go test ./... pass (cache tests still 6/6, no new test files).
+    - `yt subs --help` lists `remove` alongside `add` and `list` with the 50-unit cost called out.
+    - `yt subs remove --help` documents the 50-unit cost, --yes/--dry-run flags, and the SUB_ID-vs-channelId requirement.
+    - Pre-API errors: `subs remove` (no args) → exit 1, "requires at least 1 arg(s), only received 0". `subs remove ""` → exit 1, "invalid subscription id \"\": empty value".
+    - `subs remove ZLqFooBar --dry-run` → "DRY RUN: would unsubscribe from 1 subscription(s) (cost: 50 units)" + the id on stdout. `subs remove ZLqFoo ZLqBar ZLqBaz --dry-run` → "(cost: 150 units)" + 3 ids.
+    - Confirmation abort: `echo "no" | subs remove ZLqNonExistent` printed the prompt and exited 1 with "aborted" — no API call made.
+  - Did NOT execute a real unsubscribe against a live subscription (would mutate the user's account); the dry-run + confirmation-abort paths exercise every code path except svc.Subscriptions.Delete, which mirrors items_remove's already-tested delete flow.
+  - Milestone 4 item 11 now fully complete (subs add ✅, subs remove ✅). Next priorities per PRD Milestone 4: videos update / delete (item 12), channels update (item 13), activity / comments / captions (item 14), ref categories|languages|regions (item 15).
