@@ -66,7 +66,7 @@ API methods: `list`, `insert`, `update`, `delete`, `rate`, `getRating`, `reportA
 
 | Command | API call | Status | Notes |
 |---|---|---|---|
-| `yt videos show <id>...` | `videos.list (id=...)` | 🎯 | snippet,contentDetails,statistics,status. |
+| `yt videos show <id>...` | `videos.list (id=...)` | ✅ | snippet,contentDetails,statistics,status. Accepts raw ids or URLs. Batched 50 ids per call (1 unit/batch). Warns on stderr for ids the API didn't return. |
 | `yt videos mine` | `videos.list (myRating=like)` + own channel uploads | 📋 | Convenience for "my uploads". |
 | `yt videos rate <id> --as=like\|dislike\|none` | `videos.rate` | 🎯 | 50 units. |
 | `yt videos rating <id>...` | `videos.getRating` | 🎯 | |
@@ -239,7 +239,7 @@ The order below resolves the loose ordering in CLAUDE.md against the gaps above.
 ### Milestone 1 — playlist & item CRUD (next)
 1. ✅ `playlists create` / `update` / `delete`
 2. ✅ `items add` / ✅ `items remove` / ✅ `items move`
-3. `videos show <id>...` (needed by the rest as a lookup helper)
+3. ✅ `videos show <id>...` (lookup helper; batched, URL-aware)
 4. Quota cost helper + `--dry-run` infrastructure shared across all writes
 
 ### Milestone 2 — agent-friendly bulk ops

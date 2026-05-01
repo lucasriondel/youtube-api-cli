@@ -49,6 +49,17 @@
   - Sequential playlistItems.delete calls; first failure aborts and surfaces the offending itemId. On success prints "Removed item id=…" per deletion
   - Verified: go vet passes, build clean, `items remove --help` documents 50-unit cost and the playlistItemId requirement, missing-args errors fire pre-API, dry-run with 3 ids prints the correct cost (150 units), confirmation abort on "no" returns exit 1 without calling the API
 
+2026-05-01: Implemented `yt videos show <id-or-url>...` (Milestone 1, item 3).
+  - New files: internal/cmd/videos.go (top-level group), internal/cmd/videos_show.go
+  - Wired newVideosCmd() into root.go alongside auth/playlists/items
+  - Args: one or more video references; cobra.MinimumNArgs(1) enforces presence
+  - Reuses parseVideoID() from items_add.go so raw ids and watch?v=/youtu.be/shorts/embed/v URLs are all accepted; invalid refs error pre-API
+  - Single batched videos.list call per 50 ids (parts=id,snippet,contentDetails,statistics,status). Quota cost: 1 unit per batch — documented in --help
+  - Missing/unavailable ids (e.g. private/deleted) trigger a stderr warning listing the absent ids; the table still renders for whatever the API returned
+  - Columns: ID / TITLE / CHANNEL / DURATION / VIEWS / LIKES / PUBLISHED / PRIVACY. Duration is reformatted from ISO-8601 PT#H#M#S to H:MM:SS or M:SS via formatISODuration(). Published is sliced to YYYY-MM-DD (UTC). JSON output is the raw []*youtube.Video slice
+  - No --dry-run: read-only command, 1 unit per batch — would be noise. Matches the pattern set by `playlists show` / `items list`
+  - Verified: go vet passes, build clean, `videos show --help` documents 1-unit batched cost, missing-args + invalid-URL errors fire pre-API, real API call against dQw4w9WgXcQ + youtu.be URL + watch?v URL all resolved and rendered, missing-id warning fires for "notavalidid1", JSON output includes the full raw video resource
+
 2026-05-01: Implemented `yt items move <playlist-id> <item-id> --to <position>` (Milestone 1, item 2c) — completes Milestone 1 step 2.
   - New file: internal/cmd/items_move.go
   - Wired into items.go subcommand list
