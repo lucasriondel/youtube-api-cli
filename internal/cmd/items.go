@@ -12,5 +12,6 @@ func newItemsCmd() *cobra.Command {
 	c.AddCommand(newItemsRemoveCmd())
 	c.AddCommand(newItemsMoveCmd())
 	c.AddCommand(newItemsSortCmd())
+	c.AddCommand(newItemsDedupeCmd())
 	return c
 }

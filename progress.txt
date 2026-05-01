@@ -126,3 +126,17 @@
     - Missing playlist-id arg fires cobra.ExactArgs(1) error pre-API.
   - Did NOT actually execute a real sort against a playlist (keeping live mutations out of CI flow); the dry-run path exercises every code path except svc.PlaylistItems.Update, which mirrors items move's already-tested update flow.
 
+2026-05-01: Implemented `yt items dedupe <playlist-id> [--keep=first|last]` (Milestone 2, item 7) — completes Milestone 2.
+  - New file: internal/cmd/items_dedupe.go
+  - Wired into items.go subcommand list
+  - Args: <playlist-id>; cobra.ExactArgs(1). Required flag --keep (default "first"); validated against first|last via parseKeepMode(); bogus values error pre-API.
+  - Reads the full playlist via fetchAllPlaylistItems() — reuses the etag-cached fetchPlaylistItemsPage() helper from items_list.go, so an unchanged playlist re-dedupe costs 0 read quota when the etag matches.
+  - planDedupe() groups items by videoIdOf(), sorts each group by snippet.Position ascending, keeps the first (or last with --keep=last), and emits the rest as deletion candidates. Items with no resolvable videoId are skipped (we can't tell whether they're dupes of anything). Output sorted by Position ascending so the dry-run table reads top-to-bottom in playlist order.
+  - Quota cost: 1 unit per page of items.list (etag-cached) + 50 units per duplicate item removed. Documented in --help.
+  - --dry-run prints "DRY RUN: would remove M duplicate item(s) from playlist X (keep=first|last) (cost: 50M units)" on stderr and a POS / ITEM_ID / VIDEO_ID / KEPT_ID / TITLE table on stdout. JSON output is the []duplicateItem slice with Position, ItemID, VideoID, Title, KeptID.
+  - When applying for real and writeCost > 1000, prompts on stderr ("Type 'yes' to proceed") unless --yes. Aborts cleanly on any other input — no partial writes.
+  - When the planner finds nothing to remove, prints "no duplicates found in playlist X" and exits 0.
+  - On success prints "Removed duplicate item id=… videoId=…" per applied delete + a final "Deduped: M item(s) removed, C units spent." summary.
+  - Sequential playlistItems.delete calls (mirrors items remove's flow); first failure aborts and surfaces the offending itemId.
+  - Verified: go build clean, go vet clean, go test ./... clean (cache tests still 6/6). `items dedupe --help` documents the cost math, --keep default, --yes/--dry-run flags, and renders correctly. `items dedupe` (no args) errors "accepts 1 arg(s), received 0" pre-API. `items dedupe PLfoo --keep=bogus` errors "invalid --keep \"bogus\" (want one of: first, last)" pre-API. `yt items` lists "dedupe" alongside the other subcommands. Did NOT execute a real dedupe against a live playlist (no test playlist with known duplicates handy); the dry-run path exercises every code path except svc.PlaylistItems.Delete, which mirrors items remove's already-tested delete flow.
+
