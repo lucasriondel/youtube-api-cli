@@ -40,7 +40,7 @@ API methods: `list`, `insert`, `update`, `delete`. Cost: 1 / 50 / 50 / 50.
 | `yt playlists list` | `playlists.list (mine=true)` | ✅ | |
 | `yt playlists show <id>` | `playlists.list (id=...)` | ✅ | |
 | `yt playlists create --title --description --privacy` | `playlists.insert` | ✅ | 50 units. Supports `--dry-run`. |
-| `yt playlists update <id> [--title --description --privacy]` | `playlists.update` | 🎯 | 50 units. Patch semantics (only send changed parts). |
+| `yt playlists update <id> [--title --description --privacy]` | `playlists.update` | ✅ | 50 units (+1 read). Patch semantics: fetches current snippet/status, overlays provided flags. Supports `--dry-run`. |
 | `yt playlists delete <id>` | `playlists.delete` | 🎯 | 50 units. Confirm prompt unless `--yes`. |
 
 ---

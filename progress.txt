@@ -5,3 +5,13 @@
   - Validates privacy values; --dry-run prints planned mutation + 50-unit quota cost without calling API
   - Renders created playlist via output.Render (table/json/plain)
   - Verified: go vet passes, build clean, --help/--dry-run/invalid-privacy/missing-title all behave correctly
+
+2026-05-01: Implemented `yt playlists update <id>` (Milestone 1, item 1b).
+  - New file: internal/cmd/playlists_update.go
+  - Wired into playlists.go subcommand list
+  - Flags: --title, --description, --privacy {private|unlisted|public}, --dry-run
+  - Patch semantics: fetches current snippet+status (1 unit), overlays only the flags the user passed via cmd.Flags().Changed, then sends a single playlists.update (50 units)
+  - Requires at least one of --title/--description/--privacy; validates privacy enum; refuses empty resulting title
+  - --dry-run prints planned merged values + cost without calling update
+  - Renders updated playlist via output.Render (table/json/plain)
+  - Verified: go vet passes, build clean, --help shows quota cost, missing-flags and invalid-privacy errors fire before any API call
