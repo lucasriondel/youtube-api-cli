@@ -54,7 +54,7 @@ API methods: `list`, `insert`, `update`, `delete`. Cost: 1 / 50 / 50 / 50.
 | `yt items list <playlist-id>` | `playlistItems.list` | ✅ | |
 | `yt items add <playlist-id> <video-id>...` | `playlistItems.insert` | ✅ | 50 units per video. Accepts raw ids or URLs (watch?v=, youtu.be/, shorts/, embed/, v/). Supports `--dry-run`. |
 | `yt items remove <item-id>...` | `playlistItems.delete` | ✅ | 50 units per item. Takes `playlistItemId` (the ITEM_ID column from `items list`), not videoId. Prompts for confirmation unless `--yes`. Supports `--dry-run`. |
-| `yt items move <playlist-id> <item-id> --to <position>` | `playlistItems.update` | 🎯 | 50 units. |
+| `yt items move <playlist-id> <item-id> --to <position>` | `playlistItems.update` | ✅ | 51 units (1 read + 50 update). Verifies item belongs to the given playlist before moving. Supports `--dry-run`. |
 | `yt items sort <playlist-id> --by=title\|date\|duration\|channel [--reverse]` | local sort + `playlistItems.update` per moved item | 📋 | Mandatory `--dry-run` first. Quota-budget check before applying. |
 | `yt items dedupe <playlist-id>` | `playlistItems.delete` for duplicates | 📋 | Detect duplicate videoIds; preserve earliest. |
 
@@ -238,7 +238,7 @@ The order below resolves the loose ordering in CLAUDE.md against the gaps above.
 
 ### Milestone 1 — playlist & item CRUD (next)
 1. ✅ `playlists create` / `update` / `delete`
-2. ✅ `items add` / ✅ `items remove` / 🎯 `items move`
+2. ✅ `items add` / ✅ `items remove` / ✅ `items move`
 3. `videos show <id>...` (needed by the rest as a lookup helper)
 4. Quota cost helper + `--dry-run` infrastructure shared across all writes
 
