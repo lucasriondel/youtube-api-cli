@@ -41,7 +41,7 @@ API methods: `list`, `insert`, `update`, `delete`. Cost: 1 / 50 / 50 / 50.
 | `yt playlists show <id>` | `playlists.list (id=...)` | ✅ | |
 | `yt playlists create --title --description --privacy` | `playlists.insert` | ✅ | 50 units. Supports `--dry-run`. |
 | `yt playlists update <id> [--title --description --privacy]` | `playlists.update` | ✅ | 50 units (+1 read). Patch semantics: fetches current snippet/status, overlays provided flags. Supports `--dry-run`. |
-| `yt playlists delete <id>` | `playlists.delete` | 🎯 | 50 units. Confirm prompt unless `--yes`. |
+| `yt playlists delete <id>` | `playlists.delete` | ✅ | 50 units (+1 read for confirmation lookup). Prompts for confirmation unless `--yes`. Supports `--dry-run`. |
 
 ---
 
@@ -237,7 +237,7 @@ Default table / `--json` (raw API objects) / `--plain` (TSV). No per-command out
 The order below resolves the loose ordering in CLAUDE.md against the gaps above.
 
 ### Milestone 1 — playlist & item CRUD (next)
-1. `playlists create` / `update` / `delete`
+1. ✅ `playlists create` / `update` / `delete`
 2. `items add` / `remove` / `move`
 3. `videos show <id>...` (needed by the rest as a lookup helper)
 4. Quota cost helper + `--dry-run` infrastructure shared across all writes

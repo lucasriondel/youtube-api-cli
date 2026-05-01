@@ -11,5 +11,6 @@ func newPlaylistsCmd() *cobra.Command {
 	c.AddCommand(newPlaylistsShowCmd())
 	c.AddCommand(newPlaylistsCreateCmd())
 	c.AddCommand(newPlaylistsUpdateCmd())
+	c.AddCommand(newPlaylistsDeleteCmd())
 	return c
 }

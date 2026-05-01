@@ -15,3 +15,13 @@
   - --dry-run prints planned merged values + cost without calling update
   - Renders updated playlist via output.Render (table/json/plain)
   - Verified: go vet passes, build clean, --help shows quota cost, missing-flags and invalid-privacy errors fire before any API call
+
+2026-05-01: Implemented `yt playlists delete <id>` (Milestone 1, item 1c) — completes Milestone 1 step 1.
+  - New file: internal/cmd/playlists_delete.go
+  - Wired into playlists.go subcommand list
+  - Flags: --yes (skip confirmation), --dry-run
+  - Fetches current snippet (1 unit) so the confirmation prompt can show the playlist title and a missing id errors out before any 50-unit call
+  - Default flow prompts on stderr, reads from cmd.InOrStdin(), requires literal "yes" to proceed (any other input aborts cleanly)
+  - --yes bypasses the prompt; --dry-run prints the planned deletion + cost without calling delete
+  - On success prints "Deleted playlist id=… title=…" to stdout
+  - Verified: go vet passes, build clean, `playlists delete --help` shows quota cost & flags, arg validation fires before any API call, command appears in `playlists` subcommand list
