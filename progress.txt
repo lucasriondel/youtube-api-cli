@@ -36,3 +36,15 @@
   - --dry-run prints "would add N video(s) to playlist X (cost: 50N units)" + a PLAYLIST_ID/VIDEO_ID table of resolved ids without calling the API
   - On success renders POS / ITEM_ID / VIDEO_ID / TITLE for each created item, JSON output is the raw []PlaylistItem
   - Verified: go vet passes, build clean, `items add --help` documents 50-unit cost, arg-count + URL-parse errors fire pre-API, dry-run with 4 mixed inputs (raw id, watch?v, youtu.be, /shorts) correctly resolves all four
+
+2026-05-01: Implemented `yt items remove <item-id>...` (Milestone 1, item 2b).
+  - New file: internal/cmd/items_remove.go
+  - Wired into items.go subcommand list
+  - Args: one or more playlistItemIds; cobra.MinimumNArgs(1) enforces presence
+  - Takes playlistItemId (ITEM_ID column from `items list`), NOT videoId — long help spells this out because the same video can appear multiple times in a playlist with distinct item ids, so the API requires the item id to disambiguate. Skipped the "resolution helper" mentioned in the PRD note: scoped to a single task; `items list` already exposes ITEM_ID, and a videoId→itemId lookup can land later if there's real demand.
+  - Flags: --yes (skip confirmation), --dry-run
+  - Default flow prompts on stderr ("About to remove N item(s)... Type 'yes' to confirm: "), reads from cmd.InOrStdin(); any non-"yes" input aborts cleanly before any API call
+  - --dry-run prints "would remove N item(s) (cost: 50N units)" + the list of item ids on stdout, no API call
+  - Trims whitespace from each arg and rejects empty values pre-API
+  - Sequential playlistItems.delete calls; first failure aborts and surfaces the offending itemId. On success prints "Removed item id=…" per deletion
+  - Verified: go vet passes, build clean, `items remove --help` documents 50-unit cost and the playlistItemId requirement, missing-args errors fire pre-API, dry-run with 3 ids prints the correct cost (150 units), confirmation abort on "no" returns exit 1 without calling the API
