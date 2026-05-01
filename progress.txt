@@ -102,3 +102,27 @@
     - JSON output mode round-trips through the cached payload correctly (kind=youtube#playlistItemListResponse, id+snippet+contentDetails preserved).
     - `yt cache clear` removes 1 entry, prints "Removed 1 cache entry." (singular form via plural() helper).
   - Did NOT wire the cache into playlists list, videos show, or other read paths — PRD specifically called out items list, items sort, items dedupe; sort/dedupe will pick up the cache when they land. Keeping the change scoped.
+
+2026-05-01: Implemented `yt items sort <playlist-id> --by=title|date|duration|channel [--reverse]` (Milestone 2, item 6).
+  - New file: internal/cmd/items_sort.go
+  - Wired into items.go subcommand list
+  - Args: <playlist-id>; cobra.ExactArgs(1). Required flag --by validated against title/date/duration/channel; bogus values error pre-API. --reverse flips order. --yes skips the >1000-unit confirmation.
+  - Reads the full playlist via fetchAllPlaylistItems() — reuses the existing cached fetchPlaylistItemsPage() helper from items_list.go, so an unchanged playlist re-sort costs 0 read quota when the etag matches.
+  - For --by=duration, fetchVideoDurations() pulls contentDetails.duration via batched videos.list (50 ids/call, 1 unit/batch). Live streams or unparseable PT durations sort as 0.
+  - Local sort via sort.SliceStable. Comparators: title/channel are case-insensitive; date sorts on raw RFC3339 publishedAt (lexicographic = chronological); duration on parsed seconds. Tie-breaker is the playlistItemId so output is deterministic.
+  - planMoves() walks the sorted slice and only emits a move for items whose current position differs from their target — keeps write cost proportional to out-of-place count, not playlist size (CLAUDE.md guidance). The plannedMove struct carries the snippet.ResourceId from the cached item, so applyMove() can do the playlistItems.update directly without a per-item playlistItems.list (would have been 1 unit per move = 50% read overhead).
+  - Moves are sorted ascending by target position before being applied — each insert at position N shifts only items >= N, so going low→high means already-placed items don't get bumped by later inserts.
+  - --dry-run is mandatory first per PRD: prints "DRY RUN: would move M of N item(s) to sort playlist X by KEY (cost: 50M units)" + a FROM/TO/ITEM_ID/VIDEO_ID/TITLE table. No API write happens. JSON output is the []plannedMove slice.
+  - When applying for real and writeCost > 1000, prompts on stderr ("Type 'yes' to proceed") unless --yes. Aborts cleanly on any other input — no partial writes.
+  - When the planner finds nothing to move (already sorted), prints "playlist already sorted by KEY — no changes" and exits 0.
+  - On success prints "Moved item id=… from N to M" per applied move + a final "Sorted: M move(s), C units spent." summary.
+  - --help documents quota math: "1 unit per page of items.list (etag-cached) + 1 unit per batch of 50 ids for videos.list (only when --by=duration) + 50 units per moved item. A 50-item playlist sorted with every item moving costs 1 + 50×50 = 2501 units." Enough info to predict cost before running.
+  - Verified: go build clean, go vet clean, go test ./... clean (cached). Live tests against a 12-item private playlist:
+    - `items sort PL... --by=title --dry-run` reports "12 of 12 item(s) ... cost: 600 units", table shows correct alphabetical order (case-insensitive — "7 Optimization" before "Avoid"), JSON output contains the [12]plannedMove slice with FROM/TO populated.
+    - `items sort PL... --by=duration --dry-run` reports "11 of 12 item(s) ... cost: 550 units" (one item already in place by chance), batched videos.list ran 1× for 12 ids.
+    - `items sort PL... --by=date --reverse --dry-run` shows newest-first ordering as expected, cost 600 units.
+    - `--by=bogus` errors "invalid --by ... want one of: title, date, duration, channel" before any API call.
+    - Missing `--by` errors "required flag(s) \"by\" not set" before any API call.
+    - Missing playlist-id arg fires cobra.ExactArgs(1) error pre-API.
+  - Did NOT actually execute a real sort against a playlist (keeping live mutations out of CI flow); the dry-run path exercises every code path except svc.PlaylistItems.Update, which mirrors items move's already-tested update flow.
+

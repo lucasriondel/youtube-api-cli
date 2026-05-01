@@ -55,7 +55,7 @@ API methods: `list`, `insert`, `update`, `delete`. Cost: 1 / 50 / 50 / 50.
 | `yt items add <playlist-id> <video-id>...` | `playlistItems.insert` | ✅ | 50 units per video. Accepts raw ids or URLs (watch?v=, youtu.be/, shorts/, embed/, v/). Supports `--dry-run`. |
 | `yt items remove <item-id>...` | `playlistItems.delete` | ✅ | 50 units per item. Takes `playlistItemId` (the ITEM_ID column from `items list`), not videoId. Prompts for confirmation unless `--yes`. Supports `--dry-run`. |
 | `yt items move <playlist-id> <item-id> --to <position>` | `playlistItems.update` | ✅ | 51 units (1 read + 50 update). Verifies item belongs to the given playlist before moving. Supports `--dry-run`. |
-| `yt items sort <playlist-id> --by=title\|date\|duration\|channel [--reverse]` | local sort + `playlistItems.update` per moved item | 📋 | Mandatory `--dry-run` first. Quota-budget check before applying. |
+| `yt items sort <playlist-id> --by=title\|date\|duration\|channel [--reverse]` | local sort + `playlistItems.update` per moved item | ✅ | 50 units per moved item. Local sort via cached `items list` (etag-cached, 1 unit). `--by=duration` adds `videos.list` batches (1 unit/50 ids). Only out-of-place items are updated. `--dry-run` prints the move plan without writing; `--yes` skips the >1000-unit confirmation. |
 | `yt items dedupe <playlist-id>` | `playlistItems.delete` for duplicates | 📋 | Detect duplicate videoIds; preserve earliest. |
 
 ---
@@ -244,7 +244,7 @@ The order below resolves the loose ordering in CLAUDE.md against the gaps above.
 
 ### Milestone 2 — agent-friendly bulk ops
 5. ✅ Read cache (etag-aware) under `os.UserCacheDir()/yt/` — `internal/cache`, wired into `items list`, `yt cache clear` / `yt cache info`
-6. `items sort` (with mandatory `--dry-run`)
+6. ✅ `items sort` (local sort + per-item `playlistItems.update`, `--dry-run`, >1000-unit confirmation)
 7. `items dedupe`
 
 ### Milestone 3 — discovery & ratings
