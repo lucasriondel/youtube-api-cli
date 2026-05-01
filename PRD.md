@@ -51,7 +51,7 @@ API methods: `list`, `insert`, `update`, `delete`. Cost: 1 / 50 / 50 / 50.
 
 | Command | API call | Status | Notes |
 |---|---|---|---|
-| `yt items list <playlist-id>` | `playlistItems.list` | ✅ | |
+| `yt items list <playlist-id>` | `playlistItems.list` | ✅ | etag-cached on disk; refetch costs 0 units when unchanged. `--no-cache` to bypass. |
 | `yt items add <playlist-id> <video-id>...` | `playlistItems.insert` | ✅ | 50 units per video. Accepts raw ids or URLs (watch?v=, youtu.be/, shorts/, embed/, v/). Supports `--dry-run`. |
 | `yt items remove <item-id>...` | `playlistItems.delete` | ✅ | 50 units per item. Takes `playlistItemId` (the ITEM_ID column from `items list`), not videoId. Prompts for confirmation unless `--yes`. Supports `--dry-run`. |
 | `yt items move <playlist-id> <item-id> --to <position>` | `playlistItems.update` | ✅ | 51 units (1 read + 50 update). Verifies item belongs to the given playlist before moving. Supports `--dry-run`. |
@@ -209,11 +209,11 @@ Print the planned mutation set + total estimated quota cost. Exit 0 without call
 
 ### Read cache
 
-🎯 Priority for `items list`, `items sort`, `items dedupe`, and any future bulk-read flows.
+✅ Wired into `items list`. Available for `items sort`, `items dedupe`, and any future bulk-read flows via `internal/cache`.
 
-- On-disk cache in `os.UserCacheDir()/yt/` keyed by `(endpoint, params, etag)`.
-- Honor `If-None-Match` so a refetch costs 0 units when unchanged.
-- `--no-cache` flag, and a `yt cache clear` command.
+- On-disk cache in `os.UserCacheDir()/yt/` keyed by SHA-256 of `(endpoint, sorted-params)`. Each entry stores `{etag, payload}` as `0600`-mode JSON.
+- `internal/cache` exposes `Lookup(key)`, `Store(key, etag, payload)`, `Clear()`, `Dir()`. Callers do the standard dance: lookup → call API with `IfNoneMatch(etag)` → on `googleapi.IsNotModified` reuse the stored payload, else store the fresh response.
+- `--no-cache` flag bypasses both lookup and store. `yt cache clear` wipes every entry; `yt cache info` prints the cache dir.
 
 ### Output (already in place)
 
@@ -243,7 +243,7 @@ The order below resolves the loose ordering in CLAUDE.md against the gaps above.
 4. ✅ Quota cost helper + `--dry-run` infrastructure shared across all writes (`internal/ytapi/quota.go`, `internal/cmd/dryrun.go`)
 
 ### Milestone 2 — agent-friendly bulk ops
-5. Read cache (etag-aware) under `os.UserCacheDir()/yt/`
+5. ✅ Read cache (etag-aware) under `os.UserCacheDir()/yt/` — `internal/cache`, wired into `items list`, `yt cache clear` / `yt cache info`
 6. `items sort` (with mandatory `--dry-run`)
 7. `items dedupe`
 

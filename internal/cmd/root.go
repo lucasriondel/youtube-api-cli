@@ -25,5 +25,6 @@ func NewRoot() *cobra.Command {
 	root.AddCommand(newPlaylistsCmd())
 	root.AddCommand(newItemsCmd())
 	root.AddCommand(newVideosCmd())
+	root.AddCommand(newCacheCmd())
 	return root
 }

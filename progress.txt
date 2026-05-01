@@ -82,3 +82,23 @@
   - --dry-run prints "would move item X from position N to M in playlist P (cost: 51 units)" on stderr; the read still happens (1 unit) so we can validate ownership and surface the current position before the user commits to the 50-unit write
   - On success renders POS / ITEM_ID / VIDEO_ID / TITLE for the updated item; JSON output is the raw *PlaylistItem
   - Verified: go vet passes, build clean, `items move --help` documents 51-unit cost, arg-count + missing-`--to` + negative-`--to` errors all fire pre-API, command appears in `items` subcommand list
+
+2026-05-01: Implemented etag-aware read cache (Milestone 2, item 5).
+  - New package: internal/cache (cache.go + cache_test.go). Exposes Key(endpoint, params), Lookup(key), Store(key, etag, payload), Clear(), Dir().
+    - Key is SHA-256 of "endpoint\x1f<sorted k=v pairs>" — stable across map iteration order; sort-keys ensures equivalent calls hash identically.
+    - Entries stored as JSON {etag, payload} under os.UserCacheDir()/yt/<sha>.json, mode 0600 via tmpfile + atomic rename. ErrMiss returned for missing entries (errors.Is friendly). Empty etag → Store no-ops (we'd have nothing to revalidate against later).
+    - Clear() removes only *.json (won't blast user files if they put something there), returns count for the success message.
+  - New file: internal/cmd/cache.go — `yt cache clear` (wipes all entries) and `yt cache info` (prints cache dir). Wired into root.go alongside auth/playlists/items/videos.
+  - Refactored internal/cmd/items_list.go to use the cache:
+    - Each page goes through fetchPlaylistItemsPage(ctx, svc, playlistID, parts, pageToken, noCache). Lookup cached entry → if present, set call.IfNoneMatch(etag) → on googleapi.IsNotModified, json.Unmarshal the stored payload back into a *youtube.PlaylistItemListResponse and return that. Otherwise store the fresh response.
+    - Page key includes (playlistId, parts, pageToken, maxResults) so different parts/pages don't collide.
+    - --no-cache flag added (skips both lookup and store). Documented in --help: "Cost: 1 unit per page. Responses are cached on disk by etag, so an unchanged playlist costs 0 quota units to refetch (the API returns 304 Not Modified). Pass --no-cache to bypass the cache entirely."
+    - Cache lookup errors that aren't ErrMiss surface as a stderr warning and fall back to the uncached path — bad cache file shouldn't break the command.
+  - Tests: internal/cache/cache_test.go covers Key stability across map order, Key distinguishes by params, Store/Lookup round-trip, empty-etag is a no-op, Lookup miss returns ErrMiss, Clear removes entries.
+  - Verified: go vet ./... clean, go test ./... passes (6/6 in internal/cache), build clean. Live test against a 12-item private playlist:
+    - First call (cache miss) populates ~/Library/Caches/yt/<sha>.json with etag "LsZZZf13h6A1NL2USut4GKEd4x4" and the full playlistItems.list response.
+    - Second call (cache hit) returns 304 Not Modified — same 12 rows rendered from cached payload, 0 quota units spent.
+    - --no-cache forces a fresh API call, also returns 12 rows.
+    - JSON output mode round-trips through the cached payload correctly (kind=youtube#playlistItemListResponse, id+snippet+contentDetails preserved).
+    - `yt cache clear` removes 1 entry, prints "Removed 1 cache entry." (singular form via plural() helper).
+  - Did NOT wire the cache into playlists list, videos show, or other read paths — PRD specifically called out items list, items sort, items dedupe; sort/dedupe will pick up the cache when they land. Keeping the change scoped.
