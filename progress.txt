@@ -1,0 +1,7 @@
+2026-05-01: Implemented `yt playlists create` (Milestone 1, item 1a).
+  - New file: internal/cmd/playlists_create.go
+  - Wired into playlists.go subcommand list
+  - Flags: --title (required), --description, --privacy {private|unlisted|public}, --dry-run
+  - Validates privacy values; --dry-run prints planned mutation + 50-unit quota cost without calling API
+  - Renders created playlist via output.Render (table/json/plain)
+  - Verified: go vet passes, build clean, --help/--dry-run/invalid-privacy/missing-title all behave correctly
