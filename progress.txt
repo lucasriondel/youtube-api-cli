@@ -170,3 +170,18 @@
     - `videos rate "https://youtu.be/dQw4w9WgXcQ" --as=none --dry-run` → URL parsed correctly to dQw4w9WgXcQ.
     - Live API call: `videos rate dQw4w9WgXcQ --as=none` returned exit 0, "Rated video id=dQw4w9WgXcQ as=none".
   - Did NOT bundle `videos rating` (videos.getRating) into this task per the single-task constraint — that lands next, completing Milestone 3 item 8.
+
+2026-05-01: Implemented `yt videos rating <id-or-url>...` (Milestone 3, item 8c) — completes Milestone 3 item 8.
+  - New file: internal/cmd/videos_rating.go
+  - Wired into videos.go subcommand list alongside `show` and `rate`
+  - Args: one or more video references; cobra.MinimumNArgs(1). Reuses parseVideoID() from items_add.go so raw 11-char ids and watch?v=/youtu.be/shorts/embed/v URLs are all accepted; invalid refs (empty string, URLs missing the id segment) error pre-API.
+  - Single batched videos.getRating call per 50 ids (the API method takes []string). Quota cost: 1 unit per batch (ytapi.CostGetRating) — documented in --help.
+  - Missing/unavailable ids (videos the API didn't return — private/deleted/typos) trigger a stderr warning listing the absent ids; the table still renders for whatever the API returned. Mirrors `videos show`'s missing-id pattern.
+  - Columns: VIDEO_ID / RATING. Rating is one of "like", "dislike", "none" (the API never returns the rating-not-available sentinel for the authorized user). JSON output is the raw []*youtube.VideoRating slice.
+  - No --dry-run: read-only, 1 unit per batch — matches `videos show` / `items list` / `playlists show`.
+  - Verified: go build clean, go vet clean, go test ./... clean (cache tests still 6/6). `videos rating --help` documents the 1-unit batched cost and accepted URL forms. `yt videos --help` lists `rating` alongside `rate` and `show`. Edge cases:
+    - `videos rating` (missing args) → exit 1, "requires at least 1 arg(s), only received 0" pre-API.
+    - `videos rating ""` → exit 1, "invalid video reference \"\": empty value" pre-API.
+    - `videos rating "https://youtu.be/"` → exit 1, "could not extract video id from URL" pre-API.
+    - Live API call: `videos rating dQw4w9WgXcQ` returned exit 0 with VIDEO_ID=dQw4w9WgXcQ RATING=none. JSON output (`--json`) returned the raw [{"rating":"none","videoId":"dQw4w9WgXcQ"}] slice.
+  - Milestone 3 item 8 is now complete (liked list ✅, videos rate ✅, videos rating ✅). Next milestone-3 priorities per PRD: search "<query>" with quota warning, then subs list / channels show.

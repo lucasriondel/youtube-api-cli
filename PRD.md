@@ -69,7 +69,7 @@ API methods: `list`, `insert`, `update`, `delete`, `rate`, `getRating`, `reportA
 | `yt videos show <id>...` | `videos.list (id=...)` | ✅ | snippet,contentDetails,statistics,status. Accepts raw ids or URLs. Batched 50 ids per call (1 unit/batch). Warns on stderr for ids the API didn't return. |
 | `yt videos mine` | `videos.list (myRating=like)` + own channel uploads | 📋 | Convenience for "my uploads". |
 | `yt videos rate <id> --as=like\|dislike\|none` | `videos.rate` | ✅ | 50 units. Accepts raw ids or URLs. Supports `--dry-run`. |
-| `yt videos rating <id>...` | `videos.getRating` | 🎯 | |
+| `yt videos rating <id>...` | `videos.getRating` | ✅ | 1 unit per batch of 50 ids. Accepts raw ids or URLs. |
 | `yt videos update <id> [--title --description --tags --category]` | `videos.update` | 📋 | Patch semantics. |
 | `yt videos delete <id>` | `videos.delete` | 📋 | Confirm prompt. |
 | `yt videos report <id> --reason=<id> [--comment]` | `videos.reportAbuse` | ❌ | Out of scope — abuse reporting belongs in the YouTube UI, not an automation surface. |
@@ -248,10 +248,10 @@ The order below resolves the loose ordering in CLAUDE.md against the gaps above.
 7. ✅ `items dedupe` (group by videoId, `--keep=first|last`, `--dry-run`, >1000-unit confirmation)
 
 ### Milestone 3 — discovery & ratings
-8. 🚧 `liked list` / `videos rate` / `videos rating`
+8. ✅ `liked list` / `videos rate` / `videos rating`
    - ✅ `liked list` (channels.list + cached playlistItems.list)
    - ✅ `videos rate`
-   - 🎯 `videos rating`
+   - ✅ `videos rating` (batched videos.getRating, 1 unit/50 ids)
 9. `search "<query>"` with loud quota warning
 10. `subs list`, `channels show`
 
