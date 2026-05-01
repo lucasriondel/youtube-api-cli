@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/mattn/go-runewidth"
 )
 
 // Format selects how a command renders its result.
@@ -51,14 +53,14 @@ func Render(w io.Writer, format Format, headers []string, rows [][]string, data 
 func renderTable(w io.Writer, headers []string, rows [][]string) error {
 	widths := make([]int, len(headers))
 	for i, h := range headers {
-		widths[i] = len(h)
+		widths[i] = runewidth.StringWidth(h)
 	}
 	for _, row := range rows {
 		for i, cell := range row {
 			if i >= len(widths) {
 				break
 			}
-			if l := len(cell); l > widths[i] {
+			if l := runewidth.StringWidth(cell); l > widths[i] {
 				widths[i] = l
 			}
 		}
@@ -82,7 +84,11 @@ func writeRow(w io.Writer, row []string, widths []int) {
 			parts[i] = cell
 			continue
 		}
-		parts[i] = cell + strings.Repeat(" ", widths[i]-len(cell))
+		pad := widths[i] - runewidth.StringWidth(cell)
+		if pad < 0 {
+			pad = 0
+		}
+		parts[i] = cell + strings.Repeat(" ", pad)
 	}
 	fmt.Fprintln(w, strings.Join(parts, "  "))
 }
