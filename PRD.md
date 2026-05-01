@@ -108,7 +108,7 @@ API methods: `list`, `update`. Cost: 1 / 50.
 
 | Command | API call | Status | Notes |
 |---|---|---|---|
-| `yt channels show [<id>\|--mine]` | `channels.list` | 🎯 | snippet,contentDetails,statistics,brandingSettings. |
+| `yt channels show [<id>...\|--mine]` | `channels.list` | ✅ | 1 unit per call. Accepts up to 50 ids per call (batched). `--mine` shows the authenticated user's own channel and is mutually exclusive with positional ids. parts=snippet,contentDetails,statistics,brandingSettings. Warns on stderr for ids the API didn't return. |
 | `yt channels update --description --keywords --country` | `channels.update` | 📋 | Patch only changed branding fields. |
 
 `channelBanners.insert`, `watermarks.set/unset`, `thumbnails.set` — ❌ out of scope (asset uploads, not the CLI's purpose).
@@ -253,7 +253,7 @@ The order below resolves the loose ordering in CLAUDE.md against the gaps above.
    - ✅ `videos rate`
    - ✅ `videos rating` (batched videos.getRating, 1 unit/50 ids)
 9. ✅ `search "<query>"` with loud quota warning
-10. 🚧 `subs list` ✅, `channels show` 🎯
+10. ✅ `subs list` ✅, `channels show` ✅
 
 ### Milestone 4 — secondary surfaces
 11. `subs add` / `remove`

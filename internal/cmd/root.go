@@ -28,6 +28,7 @@ func NewRoot() *cobra.Command {
 	root.AddCommand(newLikedCmd())
 	root.AddCommand(newSearchCmd())
 	root.AddCommand(newSubsCmd())
+	root.AddCommand(newChannelsCmd())
 	root.AddCommand(newCacheCmd())
 	return root
 }
