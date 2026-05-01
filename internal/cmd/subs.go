@@ -8,5 +8,6 @@ func newSubsCmd() *cobra.Command {
 		Short: "Inspect and manage your subscriptions",
 	}
 	c.AddCommand(newSubsListCmd())
+	c.AddCommand(newSubsAddCmd())
 	return c
 }
