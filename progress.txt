@@ -60,6 +60,17 @@
   - No --dry-run: read-only command, 1 unit per batch — would be noise. Matches the pattern set by `playlists show` / `items list`
   - Verified: go vet passes, build clean, `videos show --help` documents 1-unit batched cost, missing-args + invalid-URL errors fire pre-API, real API call against dQw4w9WgXcQ + youtu.be URL + watch?v URL all resolved and rendered, missing-id warning fires for "notavalidid1", JSON output includes the full raw video resource
 
+2026-05-01: Implemented shared quota cost helper + --dry-run infrastructure (Milestone 1, item 4) — completes Milestone 1.
+  - New file: internal/ytapi/quota.go — exported constants (CostList=1, CostInsert/Update/Delete/Rate=50, CostGetRating=1, CostSearchList=100, CostVideoUpload=1600). Single source of truth for quota numbers; if Google reprices, one edit propagates to every --help and dry-run line.
+  - New file: internal/cmd/dryrun.go — addDryRunFlag(cmd) registers the --dry-run flag uniformly (description: "print the planned mutation(s) and quota cost without calling the API"); printDryRun(w, cost, fmt, args...) writes "DRY RUN: <action> (cost: N units)\n". Both are tiny — just centralizing what was being duplicated across 5 write commands.
+  - Refactored all 5 existing write commands to use them: playlists_create.go, playlists_update.go, playlists_delete.go, items_add.go, items_remove.go, items_move.go. Each now:
+    - Imports cost numbers from ytapi instead of hardcoding 50/51/etc — the Short/Long help text is built with fmt.Sprintf("...%d units...", ytapi.CostInsert)
+    - Calls addDryRunFlag(c) once instead of declaring `var dryRun bool` + `c.Flags().BoolVar(...)` separately
+    - Calls printDryRun(...) instead of bespoke `fmt.Fprintf(... "DRY RUN: ... (cost: N units)\n", ...)`
+  - playlists update, playlists delete, items move now show the combined read+write cost in --help (e.g. "1 unit (playlists.list) + 50 units (playlists.update) = 51 units per call") computed at command-construction time from ytapi.CostList + ytapi.CostUpdate. Previously these were "50 units (+1 read)" prose.
+  - Pre-existing dry-run semantics preserved verbatim: same fields surfaced, same stderr/stdout split, same exit codes. Confirmation prompts (delete, items remove) still gate the destructive call. items move and playlists delete/update still do their pre-API read so dry-run can show meaningful state — that was an intentional design choice, not changed.
+  - Verified: go build clean, go vet clean, go test clean (no test files yet but compiles), --help on all 5 write commands shows correct cost numbers sourced from constants, `items add ... --dry-run` with 3 mixed refs prints "DRY RUN: would add 3 video(s) to playlist PL_test (cost: 150 units)", `items remove abc def ghi --dry-run` prints "(cost: 150 units)" — both confirm cost = N × CostInsert/CostDelete from the constants.
+
 2026-05-01: Implemented `yt items move <playlist-id> <item-id> --to <position>` (Milestone 1, item 2c) — completes Milestone 1 step 2.
   - New file: internal/cmd/items_move.go
   - Wired into items.go subcommand list

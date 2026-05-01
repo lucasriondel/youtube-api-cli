@@ -199,7 +199,7 @@ These apply to all commands that mutate state or do bulk reads.
 
 ### `--dry-run` (mandatory on every write command)
 
-Print the planned mutation set + total estimated quota cost. Exit 0 without calling the API. Quota cost reference table lives in `internal/ytapi/quota.go` (to be added).
+Print the planned mutation set + total estimated quota cost. Exit 0 without calling the API. Quota cost reference table lives in `internal/ytapi/quota.go`. The shared `addDryRunFlag(cmd)` and `printDryRun(w, cost, fmt, args...)` helpers in `internal/cmd/dryrun.go` ensure every write command uses the same flag description and `DRY RUN: <action> (cost: N units)` output format.
 
 ### Quota awareness
 
@@ -240,7 +240,7 @@ The order below resolves the loose ordering in CLAUDE.md against the gaps above.
 1. ✅ `playlists create` / `update` / `delete`
 2. ✅ `items add` / ✅ `items remove` / ✅ `items move`
 3. ✅ `videos show <id>...` (lookup helper; batched, URL-aware)
-4. Quota cost helper + `--dry-run` infrastructure shared across all writes
+4. ✅ Quota cost helper + `--dry-run` infrastructure shared across all writes (`internal/ytapi/quota.go`, `internal/cmd/dryrun.go`)
 
 ### Milestone 2 — agent-friendly bulk ops
 5. Read cache (etag-aware) under `os.UserCacheDir()/yt/`
