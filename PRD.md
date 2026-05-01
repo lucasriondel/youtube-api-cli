@@ -70,7 +70,7 @@ API methods: `list`, `insert`, `update`, `delete`, `rate`, `getRating`, `reportA
 | `yt videos mine` | `videos.list (myRating=like)` + own channel uploads | 📋 | Convenience for "my uploads". |
 | `yt videos rate <id> --as=like\|dislike\|none` | `videos.rate` | ✅ | 50 units. Accepts raw ids or URLs. Supports `--dry-run`. |
 | `yt videos rating <id>...` | `videos.getRating` | ✅ | 1 unit per batch of 50 ids. Accepts raw ids or URLs. |
-| `yt videos update <id> [--title --description --tags --category]` | `videos.update` | 📋 | Patch semantics. |
+| `yt videos update <id> [--title --description --tags --category]` | `videos.update` | ✅ | 51 units (1 read + 50 update). Patch semantics: fetches current snippet (1 unit), overlays provided flags, sends a single videos.update. The API requires categoryId on every update, so the read is mandatory. `--tags` is comma-separated; `--tags=""` clears all tags. Accepts raw ids or URLs. Supports `--dry-run`. |
 | `yt videos delete <id>` | `videos.delete` | 📋 | Confirm prompt. |
 | `yt videos report <id> --reason=<id> [--comment]` | `videos.reportAbuse` | ❌ | Out of scope — abuse reporting belongs in the YouTube UI, not an automation surface. |
 | `yt videos upload <path>` | `videos.insert` | ❌ | 1600 units. Out of scope: this CLI is for organizing, not uploading. Revisit if a real use case appears. |
@@ -257,7 +257,7 @@ The order below resolves the loose ordering in CLAUDE.md against the gaps above.
 
 ### Milestone 4 — secondary surfaces
 11. ✅ `subs add` / `remove`
-12. `videos update` / `delete`
+12. 🚧 `videos update` ✅ / `videos delete` 🎯
 13. `channels update`
 14. `activity`, `comments list/post/reply`, `captions list/download`
 15. `ref categories|languages|regions`
