@@ -81,7 +81,7 @@ API methods: `list`, `insert`, `update`, `delete`, `rate`, `getRating`, `reportA
 
 | Command | Status | Notes |
 |---|---|---|
-| `yt liked list` | 🎯 | The `LL` playlist is still accessible via `playlistItems.list`. Roadmap item #4 in CLAUDE.md. |
+| `yt liked list` | ✅ | Resolves the `LL` playlist id via `channels.list (mine=true, parts=contentDetails)` (1 unit), then enumerates via the etag-cached `playlistItems.list` path used by `items list`. `--no-cache` to bypass. |
 | `yt liked add/remove <video-id>` | 📋 | Implemented as `videos.rate` wrappers — prefer that over playlistItems on `LL`. |
 | Watch Later (`WL`) | ❌ | API access removed by Google in 2016. Hard constraint. |
 | Watch History (`HL`) | ❌ | Same — no API access. |
@@ -248,7 +248,9 @@ The order below resolves the loose ordering in CLAUDE.md against the gaps above.
 7. ✅ `items dedupe` (group by videoId, `--keep=first|last`, `--dry-run`, >1000-unit confirmation)
 
 ### Milestone 3 — discovery & ratings
-8. `liked list`, `videos rate`, `videos rating`
+8. ✅ `liked list` / `videos rate` / `videos rating`
+   - ✅ `liked list` (channels.list + cached playlistItems.list)
+   - 🎯 `videos rate`, `videos rating`
 9. `search "<query>"` with loud quota warning
 10. `subs list`, `channels show`
 

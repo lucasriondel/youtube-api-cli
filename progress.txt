@@ -140,3 +140,15 @@
   - Sequential playlistItems.delete calls (mirrors items remove's flow); first failure aborts and surfaces the offending itemId.
   - Verified: go build clean, go vet clean, go test ./... clean (cache tests still 6/6). `items dedupe --help` documents the cost math, --keep default, --yes/--dry-run flags, and renders correctly. `items dedupe` (no args) errors "accepts 1 arg(s), received 0" pre-API. `items dedupe PLfoo --keep=bogus` errors "invalid --keep \"bogus\" (want one of: first, last)" pre-API. `yt items` lists "dedupe" alongside the other subcommands. Did NOT execute a real dedupe against a live playlist (no test playlist with known duplicates handy); the dry-run path exercises every code path except svc.PlaylistItems.Delete, which mirrors items remove's already-tested delete flow.
 
+
+2026-05-01: Implemented `yt liked list` (Milestone 3, item 8a — first piece of the liked/rate/rating bundle).
+  - New files: internal/cmd/liked.go (top-level group), internal/cmd/liked_list.go
+  - Wired newLikedCmd() into root.go alongside auth/playlists/items/videos/cache
+  - Args: cobra.NoArgs (the `LL` playlist id is resolved server-side, no user input needed). Flag: --no-cache to bypass the etag cache.
+  - Two-step resolve: fetchLikesPlaylistID() calls channels.list(mine=true, parts=contentDetails, MaxResults=1) and pulls ContentDetails.RelatedPlaylists.Likes. That id (a per-account `LL...` string) is what playlistItems.list accepts — calling playlistItems.list against the literal "LL" returns empty, so this lookup is mandatory. Errors clearly when the channel exposes no likes playlist.
+  - Reuses fetchPlaylistItemsPage() from items_list.go — same etag-aware on-disk cache, same parts (id,snippet,contentDetails,status), same per-page key. Means a re-run on an unchanged liked-videos playlist costs 0 quota for the playlistItems pages (only the 1-unit channels.list every time).
+  - Output mirrors `items list`: POS / ITEM_ID / VIDEO_ID / TITLE / CHANNEL columns, raw []*youtube.PlaylistItem under --json, TSV under --plain. No new output flags per CLAUDE.md.
+  - --help documents quota math: "1 unit (channels.list) + 1 unit per page of playlistItems.list".
+  - No --dry-run (read-only), no confirmation prompt — matches the pattern set by `items list` / `playlists list`.
+  - Verified: go build clean, go vet clean, go test ./... pass (cache tests still 6/6). `yt liked --help` lists the `list` subcommand. `yt liked list --help` shows quota cost + --no-cache flag. Live call against the authenticated account returned 250+ liked videos with correct POS/ITEM_ID/VIDEO_ID/TITLE/CHANNEL rendering. Second invocation hit the etag cache (same row count, no quota burn beyond the 1-unit channels.list).
+  - Did NOT bundle `videos rate` and `videos rating` into the same task per the single-task constraint — those land in a follow-up commit. PRD updated to reflect the partial completion of Milestone 3 item 8.
