@@ -52,7 +52,7 @@ API methods: `list`, `insert`, `update`, `delete`. Cost: 1 / 50 / 50 / 50.
 | Command | API call | Status | Notes |
 |---|---|---|---|
 | `yt items list <playlist-id>` | `playlistItems.list` | ✅ | |
-| `yt items add <playlist-id> <video-id>...` | `playlistItems.insert` | 🎯 | 50 units per video. |
+| `yt items add <playlist-id> <video-id>...` | `playlistItems.insert` | ✅ | 50 units per video. Accepts raw ids or URLs (watch?v=, youtu.be/, shorts/, embed/, v/). Supports `--dry-run`. |
 | `yt items remove <playlist-id> <item-id>...` | `playlistItems.delete` | 🎯 | Takes `playlistItemId`, not videoId. Add resolution helper. |
 | `yt items move <playlist-id> <item-id> --to <position>` | `playlistItems.update` | 🎯 | 50 units. |
 | `yt items sort <playlist-id> --by=title\|date\|duration\|channel [--reverse]` | local sort + `playlistItems.update` per moved item | 📋 | Mandatory `--dry-run` first. Quota-budget check before applying. |
@@ -270,6 +270,6 @@ The order below resolves the loose ordering in CLAUDE.md against the gaps above.
 
 ## Open questions
 
-1. Should `items add` accept video URLs as well as IDs? (Convenient, trivial to parse — likely yes.)
+1. ~~Should `items add` accept video URLs as well as IDs?~~ Resolved: yes — `items add` now parses raw ids and watch?v=/youtu.be/shorts/embed/v URLs.
 2. `yt quota` — do we maintain a local counter, or just document costs and skip? (Lean toward skip until a user actually hits a wall.)
 3. Cache TTL for `videos.list` responses on items containing video metadata — videos mutate (titles change, get deleted). Default 24h with `--refresh`?

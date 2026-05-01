@@ -25,3 +25,14 @@
   - --yes bypasses the prompt; --dry-run prints the planned deletion + cost without calling delete
   - On success prints "Deleted playlist id=… title=…" to stdout
   - Verified: go vet passes, build clean, `playlists delete --help` shows quota cost & flags, arg validation fires before any API call, command appears in `playlists` subcommand list
+
+2026-05-01: Implemented `yt items add <playlist-id> <video-id-or-url>...` (Milestone 1, item 2a).
+  - New file: internal/cmd/items_add.go
+  - Wired into items.go subcommand list
+  - Args: <playlist-id> followed by one or more video references; cobra.MinimumNArgs(2) enforces both
+  - Accepts raw 11-char ids OR YouTube URLs (watch?v=, youtu.be/<id>, /shorts/<id>, /embed/<id>, /v/<id>) — resolves Open Question #1 affirmatively
+  - parseVideoID() lives in the same file; rejects empty values and URLs from which no id can be extracted, before any API call
+  - Inserts each video sequentially via playlistItems.insert (snippet only); first failure aborts and surfaces the offending videoId in the error
+  - --dry-run prints "would add N video(s) to playlist X (cost: 50N units)" + a PLAYLIST_ID/VIDEO_ID table of resolved ids without calling the API
+  - On success renders POS / ITEM_ID / VIDEO_ID / TITLE for each created item, JSON output is the raw []PlaylistItem
+  - Verified: go vet passes, build clean, `items add --help` documents 50-unit cost, arg-count + URL-parse errors fire pre-API, dry-run with 4 mixed inputs (raw id, watch?v, youtu.be, /shorts) correctly resolves all four

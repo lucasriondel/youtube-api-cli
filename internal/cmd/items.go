@@ -8,5 +8,6 @@ func newItemsCmd() *cobra.Command {
 		Short: "Inspect and manage items inside a playlist",
 	}
 	c.AddCommand(newItemsListCmd())
+	c.AddCommand(newItemsAddCmd())
 	return c
 }
