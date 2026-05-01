@@ -9,7 +9,8 @@ A command-line tool for inspecting and reorganizing your YouTube playlists via t
 Early scaffold. Implemented so far:
 
 - `yt auth credentials <path>` / `auth login` / `auth status` / `auth logout` (OAuth2 desktop flow, loopback redirect, secrets stored in OS keyring with encrypted-file fallback)
-- `yt playlists list` (with `--json` and `--plain`)
+- `yt playlists list` / `yt playlists show <id>` (with `--json` and `--plain`)
+- `yt items list <playlist-id>` (paginates the full playlist)
 
 ## Install
 
@@ -78,8 +79,8 @@ internal/output/        # --json / --plain / table formatters
 
 ## Roadmap
 
-- `yt playlists show <id>` / `create` / `update` / `delete`
-- `yt items list <playlist-id>` / `add` / `remove` / `move`
+- `yt playlists create` / `update` / `delete`
+- `yt items add` / `remove` / `move`
 - `yt items sort <playlist-id> --by=title|date|duration|channel` (with `--dry-run`)
 - `yt liked list` (the `LL` playlist)
 - `yt search "query"`
