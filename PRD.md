@@ -157,8 +157,8 @@ API methods: `list`, `insert`, `update`, `download`, `delete`.
 
 | Command | Status | Notes |
 |---|---|---|
-| `yt captions list <video-id>` | 📋 | |
-| `yt captions download <caption-id> [--format=sbv\|srt\|vtt] [-o file]` | 📋 | Useful for archiving/transcripts. |
+| `yt captions list <video-id-or-url>` | ✅ | 50 units per call (captions endpoints are unusually expensive — see [quota costs](https://developers.google.com/youtube/v3/determine_quota_cost)). Accepts raw ids or URLs. Returns auto-generated (TrackKind=ASR) and uploader-supplied (standard) tracks. Columns: CAPTION_ID / LANGUAGE / NAME / TRACK_KIND / STATUS / LAST_UPDATED. JSON output is the raw `[]*youtube.Caption` slice. |
+| `yt captions download <caption-id> [--format=sbv\|srt\|vtt] [-o file]` | ✅ | 200 units per call. `--format` defaults to srt; the API converts on the fly. `-o`/`--output` writes to a file; otherwise the body goes to stdout (no trailing newline). The API only allows downloading tracks owned by the authenticated channel — third-party tracks (including ASR on others' videos) return 403. Global `--json`/`--plain` do not apply (output is the raw subtitle file). |
 | `yt captions {insert,update,delete}` | ❌ | Authoring captions is out of scope. |
 
 ---
@@ -259,7 +259,7 @@ The order below resolves the loose ordering in CLAUDE.md against the gaps above.
 11. ✅ `subs add` / `remove`
 12. ✅ `videos update` / `videos delete`
 13. ✅ `channels update`
-14. 🚧 `activity` ✅, `comments list` ✅ / `comments thread` ✅ / `comments post` ✅ / `comments reply` ✅, `captions list/download` 📋
+14. ✅ `activity` ✅, `comments list` ✅ / `comments thread` ✅ / `comments post` ✅ / `comments reply` ✅, `captions list` ✅ / `captions download` ✅
 15. `ref categories|languages|regions`
 
 ### Out of scope (recorded so we don't re-litigate)

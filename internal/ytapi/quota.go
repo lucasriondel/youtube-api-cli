@@ -22,6 +22,10 @@ const (
 	// Expensive reads.
 	CostSearchList = 100
 
+	// Captions: list/delete are 50, download is 200, insert/update are 400/450.
+	CostCaptionsList     = 50
+	CostCaptionsDownload = 200
+
 	// Uploads.
 	CostVideoUpload = 1600
 )

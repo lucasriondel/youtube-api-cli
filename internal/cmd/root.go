@@ -31,6 +31,7 @@ func NewRoot() *cobra.Command {
 	root.AddCommand(newChannelsCmd())
 	root.AddCommand(newActivityCmd())
 	root.AddCommand(newCommentsCmd())
+	root.AddCommand(newCaptionsCmd())
 	root.AddCommand(newCacheCmd())
 	return root
 }
