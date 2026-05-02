@@ -366,3 +366,30 @@
     - `activity --mine --since=2025-10-01 --max=10` correctly filtered out the 2025-07-06 row that appeared without the filter — confirms publishedAfter wiring.
     - `activity --mine --max=1 --json` returned the raw youtube#activity object including etag, snippet (channelId/channelTitle/description/publishedAt/thumbnails/title/type), and contentDetails.playlistItem.resourceId — confirms JSON is the unmodified API shape.
   - Did NOT bundle `comments list/post/reply` or `captions list/download` into this task per the single-task constraint — those are the remaining Milestone 4 item 14 work and land in follow-up commits. PRD updated to reflect partial completion (activity ✅, comments 📋, captions 📋).
+
+2026-05-02: Implemented `yt comments list --video <id> | --channel <id>` (Milestone 4, item 14b — first piece of comments listing/posting/replying bundle).
+  - New files: internal/cmd/comments.go (top-level group), internal/cmd/comments_list.go
+  - Wired newCommentsCmd() into root.go alongside auth/playlists/items/videos/liked/search/subs/channels/activity/cache.
+  - Args: cobra.NoArgs. Source flags: --video <id-or-url> and --channel <id>. RunE enforces exactly one (mutex error if both, "provide either --video <id> or --channel <id>" if neither). --video accepts raw 11-char ids or YouTube URLs (watch?v=, youtu.be/, /shorts/, /embed/, /v/) — reuses parseVideoID() from items_add.go. --channel takes a raw channel id (UC...).
+  - Flags: --order {time|relevance} default "time" (newest first — more useful than the API's "time" default mirror, and matches the YouTube UI's "Newest first" sort). --max <int> default 100 caps total threads across pages; --max <= 0 errors pre-API. validateCommentsOrder() rejects bogus values pre-API.
+  - Quota: 1 unit per page (ytapi.CostList). commentThreads.list returns up to 100 threads/page (vs 50 for most list endpoints), so per-page MaxResults clamped to min(remaining, 100). Documented in --help.
+  - Pagination: same loop pattern as activity/search/subs list — accumulates resp.Items into []*youtube.CommentThread until remaining <= 0 or NextPageToken empties.
+  - Parts: id+snippet. snippet.TopLevelComment carries the comment body, author, likes, publishedAt; snippet.TotalReplyCount is on the thread itself. Replies are NOT fetched — we'd need a separate commentThreads.list call with parts=replies (and even that only returns up to 5; full reply lists need comments.list with parentId). The REPLIES column tells callers which threads to expand later when `comments thread <thread-id>` lands.
+  - TextFormat("plainText") so the API strips HTML markup (default is "html"); collapseWhitespace() flattens \n / multiple spaces in the displayed text so the table column doesn't blow up vertically. The raw textDisplay is preserved in --json output.
+  - Columns: THREAD_ID / AUTHOR / PUBLISHED / REPLIES / LIKES / TEXT. PUBLISHED reformatted RFC3339 → YYYY-MM-DD UTC (matches videos show / activity / subs list). AUTHOR is snippet.topLevelComment.snippet.authorDisplayName (e.g. "@YouTube"). REPLIES is snippet.totalReplyCount. LIKES is snippet.topLevelComment.snippet.likeCount.
+  - JSON output is the raw []*youtube.CommentThread slice (per CLAUDE.md output convention — full snippet/topLevelComment/replies preserved if they were fetched). Plain output is TSV mirroring the table columns. No --dry-run (read-only command, 1 unit — would be noise).
+  - Verified:
+    - go build clean, go vet ./... clean, go test ./... pass (cache tests still 6/6, no new test files).
+    - `yt --help` lists `comments` alongside other top-level commands.
+    - `yt comments --help` lists the `list` subcommand with the 1-unit cost called out in Short.
+    - `yt comments list --help` documents the 1-unit cost, --video/--channel mutex, --order accepted values + default, --max default, the 100-threads-per-page detail, and the replies-not-fetched caveat.
+    - Pre-API errors all fire before any API call:
+      - `comments list` (no flags) → exit 1, "provide either --video <id> or --channel <id>".
+      - `comments list --video x --channel y` → exit 1, "--video is mutually exclusive with --channel".
+      - `comments list --video=""` → falls through to "provide either ..." (empty flag value treated as unset — fine).
+      - `comments list --video=x --order=bogus` → exit 1, "invalid --order ... want one of: time, relevance".
+      - `comments list --video=x --max=0` → exit 1, "--max must be > 0".
+      - `comments list --video="https://youtu.be/"` → exit 1, "invalid --video ...: could not extract video id from URL".
+    - Live API call: `comments list --video=dQw4w9WgXcQ --max=3` returned 3 threads on the Rick Astley video with correct THREAD_ID/AUTHOR/PUBLISHED/REPLIES/LIKES/TEXT rendering — including the pinned @YouTube reply ("can confirm: he never gave us up") with 232861 likes and 1000 replies, and 2 newer @biffgate-ii7od comments at 0 replies/0 likes.
+    - `comments list --video=dQw4w9WgXcQ --max=1 --json` returned the raw youtube#commentThread object including etag, snippet.channelId/isPublic/totalReplyCount/videoId, and snippet.topLevelComment.snippet (authorChannelId/authorChannelUrl/authorDisplayName/likeCount/publishedAt/textDisplay/textOriginal/viewerRating) — confirms JSON is the unmodified API shape.
+  - Did NOT bundle `comments thread <thread-id>` (replies expansion) or `comments post`/`comments reply` (commentThreads.insert / comments.insert) into this task per the single-task constraint — those are the remaining Milestone 4 item 14b work and land in follow-up commits. PRD updated to reflect partial completion (comments list ✅, comments post/reply 📋, comments thread 📋).

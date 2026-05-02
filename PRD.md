@@ -143,7 +143,7 @@ API methods (CommentThreads): `list`, `insert`.
 
 | Command | Status | Notes |
 |---|---|---|
-| `yt comments list --video <id> \| --channel <id>` | 📋 | Listing is cheap (1). |
+| `yt comments list --video <id> \| --channel <id>` | ✅ | 1 unit per page (up to 100 threads/page). Mutually exclusive `--video` / `--channel`; one is required. `--video` accepts raw ids or YouTube URLs. `--order` accepts time (default) / relevance. `--max` defaults to 100 and caps total threads across pages. Columns: THREAD_ID / AUTHOR / PUBLISHED / REPLIES / LIKES / TEXT. JSON output is the raw `[]*youtube.CommentThread` slice. Replies are not fetched — top-level comments only; the REPLIES count tells callers which threads to expand. |
 | `yt comments thread <thread-id>` | 📋 | Fetch full thread. |
 | `yt comments reply <parent-id> --text "..."` | 📋 | `comments.insert`. |
 | `yt comments post --video <id> --text "..."` | 📋 | `commentThreads.insert`. |
@@ -259,7 +259,7 @@ The order below resolves the loose ordering in CLAUDE.md against the gaps above.
 11. ✅ `subs add` / `remove`
 12. ✅ `videos update` / `videos delete`
 13. ✅ `channels update`
-14. 🚧 `activity` ✅, `comments list/post/reply` 📋, `captions list/download` 📋
+14. 🚧 `activity` ✅, `comments list` ✅ / `comments post/reply` 📋, `captions list/download` 📋
 15. `ref categories|languages|regions`
 
 ### Out of scope (recorded so we don't re-litigate)
