@@ -472,3 +472,27 @@
     - Third-party download attempt `captions download AUieDaaVe61MICLHDlfBO_KrRjXbEn-0300ZTS8rfdkY` (en standard track on Rick Astley video, owned by another channel) returned the expected 403: "The permissions associated with the request are not sufficient to download the caption track." — confirms the API ownership gate is surfaced cleanly via fmt.Errorf wrapping.
     - Own-video download: `captions list KJCAYqRbeXQ` (a video uploaded by the authenticated channel) returned 1 ASR track. `captions download <that-id>` to stdout returned a valid SRT file ("1\n00:00:11,770 --> 00:00:17,199\n[Music]\n\n2\n..."). `captions download <that-id> --format=vtt -o /tmp/test_caption.vtt` wrote a valid WebVTT file ("WEBVTT\nKind: captions\nLanguage: en\n\n00:00:11.770 --> ..."). Both formats round-trip cleanly.
   - With this commit, Milestone 4 item 14 is complete (activity ✅, comments list ✅, comments thread ✅, comments post ✅, comments reply ✅, captions list ✅, captions download ✅). The remaining Milestone 4 work is item 15: `ref categories|languages|regions` (cheap reference-data wrappers around videoCategories.list / i18nLanguages.list / i18nRegions.list).
+
+2026-05-02: Implemented `yt liked add <id-or-url>...` and `yt liked remove <id-or-url>...` (Milestone 3, item 8 — final piece of the liked/rate bundle).
+  - New files: internal/cmd/liked_add.go, internal/cmd/liked_remove.go
+  - Wired newLikedAddCmd() and newLikedRemoveCmd() into liked.go alongside `list`. Updated liked group Short to "Inspect or change your liked videos" to reflect the write subcommands.
+  - Both implemented as `videos.rate` wrappers (rating=like / rating=none) per the PRD note "prefer that over playlistItems on LL". Google's API does not allow direct playlistItems.insert/delete against the LL playlist — the only way to add or remove a video from Liked is via the videos.rate endpoint. The user only sees `liked add/remove` semantics; the implementation detail is hidden behind the command surface.
+  - Both commands take 1+ args (cobra.MinimumNArgs(1)) and accept raw 11-char ids or YouTube URLs (watch?v=, youtu.be/, /shorts/, /embed/, /v/) — reuses parseVideoID() from items_add.go (same path used across the CLI). Per-arg parsing happens up-front so a single bad reference fails before any API call.
+  - Shared helper runLikedRate(cmd, args, rating, dryRun) lives in liked_remove.go and is called from both commands. liked_add.go calls it with rating="like"; liked_remove.go calls it with rating="none". The helper handles arg parsing, dry-run output, the per-id videos.rate loop, and table rendering. Keeps the two command files thin (just the cobra metadata + dispatch).
+  - Quota: 50 units per video (ytapi.CostRate). videos.rate is sequential — there's no batch endpoint, so calls are made one-by-one. Total cost displayed in --dry-run is `CostRate * len(videoIDs)`.
+  - --dry-run via the standard addDryRunFlag/printDryRun helpers ("DRY RUN: would like N video(s) (cost: N*50 units)" / "DRY RUN: would unlike N video(s) (cost: N*50 units)"). Dry-run also renders the same VIDEO_ID/RATING table the real path renders so callers can preview the planned mutation set.
+  - liked remove --help warns explicitly that rating=none clears any rating including 'dislike' — the API has no like-only scope, so a video the user previously disliked will also have its dislike cleared. Documented up-front so callers aren't surprised.
+  - Output: 2-column table VIDEO_ID/RATING. JSON output is the []string slice of video ids (the raw API response from videos.rate is empty — no body to surface). Matches the convention that --json carries the actionable structured data even when the API returns nothing.
+  - Verified:
+    - go build clean, go vet ./... clean, go test ./... pass (cache tests still 6/6, no new test files).
+    - `yt liked --help` lists `add` / `list` / `remove` subcommands with their respective costs called out in Short.
+    - `yt liked add --help` documents the 50-unit cost, --dry-run, URL/id support, and the videos.rate-wrapper rationale.
+    - `yt liked remove --help` documents the 50-unit cost, --dry-run, URL/id support, the videos.rate-wrapper rationale, and the "also clears dislike" caveat.
+    - Dry-run paths:
+      - `liked add --dry-run dQw4w9WgXcQ "https://youtu.be/abcDEFG1234"` → exit 0, "DRY RUN: would like 2 video(s) (cost: 100 units)" + VIDEO_ID/RATING table with both ids extracted (URL → abcDEFG1234).
+      - `liked remove --dry-run "https://www.youtube.com/watch?v=dQw4w9WgXcQ"` → exit 0, "DRY RUN: would unlike 1 video(s) (cost: 50 units)" + table showing dQw4w9WgXcQ / none.
+    - Pre-API errors all fire before any API call:
+      - `liked add` (no args) → exit 1, "requires at least 1 arg(s), only received 0".
+      - `liked add --dry-run "https://youtu.be/"` → exit 1, "invalid video reference \"https://youtu.be/\": could not extract video id from URL".
+    - No live API call made — the live videos.rate path is already covered end-to-end by the existing `videos rate` command (verified during Milestone 3 item 8a) and `liked add/remove` is a thin dispatch over the same SDK method. Dry-run + clean build/vet is sufficient verification for this round.
+  - With this commit, Milestone 3 item 8 is now fully complete: liked list ✅, liked add ✅, liked remove ✅, videos rate ✅, videos rating ✅. The remaining 📋 items in the roadmap are: `videos mine`, `sections list/{create,update,delete}`, `yt quota`, and Milestone 4 item 15 `ref categories|languages|regions`.

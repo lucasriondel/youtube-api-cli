@@ -82,7 +82,8 @@ API methods: `list`, `insert`, `update`, `delete`, `rate`, `getRating`, `reportA
 | Command | Status | Notes |
 |---|---|---|
 | `yt liked list` | ✅ | Resolves the `LL` playlist id via `channels.list (mine=true, parts=contentDetails)` (1 unit), then enumerates via the etag-cached `playlistItems.list` path used by `items list`. `--no-cache` to bypass. |
-| `yt liked add/remove <video-id>` | 📋 | Implemented as `videos.rate` wrappers — prefer that over playlistItems on `LL`. |
+| `yt liked add <id-or-url>...` | ✅ | 50 units per video. Wraps `videos.rate` (rating=like) — Google's API only supports adding to `LL` via the rating endpoint, not `playlistItems.insert`. Accepts raw ids or URLs. Supports `--dry-run`. |
+| `yt liked remove <id-or-url>...` | ✅ | 50 units per video. Wraps `videos.rate` (rating=none). Note: this also clears `dislike` ratings — the API has no like-only scope. Accepts raw ids or URLs. Supports `--dry-run`. |
 | Watch Later (`WL`) | ❌ | API access removed by Google in 2016. Hard constraint. |
 | Watch History (`HL`) | ❌ | Same — no API access. |
 
@@ -248,8 +249,9 @@ The order below resolves the loose ordering in CLAUDE.md against the gaps above.
 7. ✅ `items dedupe` (group by videoId, `--keep=first|last`, `--dry-run`, >1000-unit confirmation)
 
 ### Milestone 3 — discovery & ratings
-8. ✅ `liked list` / `videos rate` / `videos rating`
+8. ✅ `liked list` / `liked add` / `liked remove` / `videos rate` / `videos rating`
    - ✅ `liked list` (channels.list + cached playlistItems.list)
+   - ✅ `liked add` / `liked remove` (videos.rate wrappers, multi-id, --dry-run, URL-aware)
    - ✅ `videos rate`
    - ✅ `videos rating` (batched videos.getRating, 1 unit/50 ids)
 9. ✅ `search "<query>"` with loud quota warning
