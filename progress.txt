@@ -420,3 +420,29 @@
     - `comments thread UgxSb79h83VXAwqCohF4AaABAg` (a thread with 0 replies) returned exactly 1 row (top-level only), no extra API call — confirms the totalReplyCount<=have shortcut works.
     - `comments thread NonExistentThreadId` → exit 1, "thread \"NonExistentThreadId\" not found (or not accessible to the authenticated account)" — confirms the empty-items path is caught explicitly rather than rendering a blank table.
   - Did NOT bundle `comments post`/`comments reply` (commentThreads.insert / comments.insert) or `captions list/download` into this task per the single-task constraint — those are the remaining Milestone 4 item 14 work and land in follow-up commits. PRD updated to reflect partial completion (comments list ✅, comments thread ✅, comments post/reply 📋, captions 📋).
+
+2026-05-02: Implemented `yt comments post --video <id-or-url> --text "..."` and `yt comments reply <parent-id> --text "..."` (Milestone 4, item 14b — final piece of the comments listing/posting/replying bundle, after `comments list` and `comments thread`).
+  - New files: internal/cmd/comments_post.go, internal/cmd/comments_reply.go
+  - Wired newCommentsPostCmd() and newCommentsReplyCmd() into comments.go alongside `list` and `thread`. Updated comments group Short to "List, expand, post, or reply to comment threads" to reflect all four subcommands.
+  - `comments post`: cobra.NoArgs, source flags --video <id-or-url> and --text <body>, both required and validated pre-API (empty/whitespace-only fails before any API call). --video accepts raw 11-char ids or YouTube URLs (watch?v=, youtu.be/, /shorts/, /embed/, /v/) — reuses parseVideoID() from items_add.go (same path used by comments list/videos rate/videos rating/videos update/videos delete/videos show). Builds a youtube.CommentThread with Snippet.VideoId + Snippet.TopLevelComment.Snippet.TextOriginal; sends commentThreads.insert with parts=["snippet"]. Quota: 50 units (ytapi.CostInsert). Documented in --help.
+  - `comments reply`: cobra.ExactArgs(1) for the parent id (THREAD_ID from `comments list`/`comments post`, or any reply's COMMENT_ID — YouTube flattens chains so the new comment lands on the same thread either way; documented this in --help). --text body required and validated pre-API. Builds a youtube.Comment with Snippet.ParentId + Snippet.TextOriginal; sends comments.insert with parts=["snippet"]. Quota: 50 units (ytapi.CostInsert). Documented in --help.
+  - Both commands: standard --dry-run via addDryRunFlag/printDryRun ("DRY RUN: would post comment on video <id> (text=\"...\") (cost: 50 units)" / "DRY RUN: would reply to comment <parent-id> (text=\"...\") (cost: 50 units)"). Added truncateForLog(s, 80) helper in comments_post.go to clip overlong --text in dry-run output without affecting the real API payload (lives in comments_post.go but available to comments_reply.go via package scope).
+  - On success both render a 4-row FIELD/VALUE table (THREAD_ID/VIDEO_ID/AUTHOR/TEXT for post; COMMENT_ID/PARENT_ID/AUTHOR/TEXT for reply). JSON output is the raw *youtube.CommentThread / *youtube.Comment from the API response per CLAUDE.md output convention. AUTHOR/TEXT extracted via the existing commentThreadAuthor/commentThreadText (from comments_list.go) and commentAuthor/commentText (from comments_thread.go) helpers — no duplication.
+  - Verified:
+    - go build clean, go vet ./... clean, go test ./... pass (cache tests still 6/6, no new test files).
+    - `yt comments --help` lists `list` / `thread` / `post` / `reply` subcommands with their respective costs called out in Short.
+    - `yt comments post --help` documents the 50-unit cost, --video URL/id support, --text required, --dry-run, and the JSON output shape.
+    - `yt comments reply --help` documents the 50-unit cost, the parent-id semantics (top-level thread or reply id, both flatten to the same thread), --text required, --dry-run, and the JSON output shape.
+    - Pre-API errors for `post` (all fire before any API call):
+      - `comments post` (no flags) → exit 1, "--video is required".
+      - `comments post --video=dQw4w9WgXcQ` → exit 1, "--text is required and cannot be empty".
+      - `comments post --video= --text=hi` → exit 1, "--video is required" (empty-string flag treated as unset).
+      - `comments post --video="https://youtu.be/" --text=hi` → exit 1, "invalid --video ...: could not extract video id from URL".
+      - `comments post --video=dQw4w9WgXcQ --text="hello world from yt-cli dry run" --dry-run` → exit 0, "DRY RUN: would post comment on video dQw4w9WgXcQ (text=\"hello world from yt-cli dry run\") (cost: 50 units)".
+    - Pre-API errors for `reply` (all fire before any API call):
+      - `comments reply` (no args) → exit 1, "accepts 1 arg(s), received 0".
+      - `comments reply ""` → exit 1, "invalid parent id: empty value".
+      - `comments reply Ugzge340dBgB75hWBm54AaABAg` (no --text) → exit 1, "--text is required and cannot be empty".
+      - `comments reply Ugzge340dBgB75hWBm54AaABAg --text=hi --dry-run` → exit 0, "DRY RUN: would reply to comment Ugzge340dBgB75hWBm54AaABAg (text=\"hi\") (cost: 50 units)".
+    - No live API call made — both are write commands that would create real comments visible to other YouTube users (the only readily-available test target would be the public Rick Astley video used in the comments list/thread verification, and posting a real "test comment" there would be public spam). Dry-run coverage + clean build/vet is sufficient verification for this round; the live path mirrors `comments list`/`comments thread` (same auth, same SDK methods on the same resource).
+  - With this commit, Milestone 4 item 14 is now: activity ✅, comments list ✅, comments thread ✅, comments post ✅, comments reply ✅, captions list/download 📋. Captions are the remaining bullet on item 14, then `ref categories|languages|regions` (item 15) closes Milestone 4.
