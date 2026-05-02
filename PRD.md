@@ -176,10 +176,16 @@ API methods: `list`, `insert`, `update`, `download`, `delete`.
 
 | API | Command | Status |
 |---|---|---|
-| `videoCategories.list` | `yt ref categories [--region=US]` | 📋 |
-| `i18nLanguages.list` | `yt ref languages` | 📋 |
-| `i18nRegions.list` | `yt ref regions` | 📋 |
+| `videoCategories.list` | `yt ref categories [--region=US]` | ✅ |
+| `i18nLanguages.list` | `yt ref languages` | ✅ |
+| `i18nRegions.list` | `yt ref regions` | ✅ |
 | `videoAbuseReportReasons.list` | ❌ — only useful for `videos.reportAbuse`, which is out of scope. |
+
+`yt ref categories`: 1 unit per call. `--region` accepts an ISO 3166-1 alpha-2 code (default `US`); empty string fails before the API call. Returns the full list (no pagination). Columns: CATEGORY_ID / TITLE / ASSIGNABLE. JSON output is the raw `[]*youtube.VideoCategory` slice.
+
+`yt ref languages`: 1 unit per call. No flags. Returns the full list (no pagination). Columns: LANGUAGE_ID / HL / NAME (NAME is the language's name in the language itself). JSON output is the raw `[]*youtube.I18nLanguage` slice.
+
+`yt ref regions`: 1 unit per call. No flags. Returns the full list (no pagination). Columns: REGION_ID / GL / NAME. The GL column feeds `--region` on `yt ref categories` and other geographically-scoped endpoints. JSON output is the raw `[]*youtube.I18nRegion` slice.
 
 Group under `yt ref ...` to keep the top-level command list tidy.
 
@@ -262,7 +268,7 @@ The order below resolves the loose ordering in CLAUDE.md against the gaps above.
 12. ✅ `videos update` / `videos delete`
 13. ✅ `channels update`
 14. ✅ `activity` ✅, `comments list` ✅ / `comments thread` ✅ / `comments post` ✅ / `comments reply` ✅, `captions list` ✅ / `captions download` ✅
-15. `ref categories|languages|regions`
+15. ✅ `ref categories|languages|regions`
 
 ### Out of scope (recorded so we don't re-litigate)
 - `videos.insert` (uploads), `videos.reportAbuse`
