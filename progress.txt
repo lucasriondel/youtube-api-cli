@@ -320,3 +320,26 @@
       - `videos delete "https://youtu.be/"` → exit 1, "invalid video reference ...: could not extract video id from URL".
   - Did NOT execute a real delete against a live video (would mutate the user's account); the dry-run + pre-API error paths exercise every code path except svc.Videos.Delete, which mirrors playlists delete's already-tested delete flow.
   - Milestone 4 item 12 now fully complete (videos update ✅, videos delete ✅). Next priorities per PRD Milestone 4: channels update (item 13), activity / comments / captions (item 14), ref categories|languages|regions (item 15).
+
+2026-05-02: Implemented `yt channels update [--description --keywords --country]` (Milestone 4, item 13).
+  - New file: internal/cmd/channels_update.go
+  - Wired into channels.go subcommand list alongside `show`
+  - Args: cobra.NoArgs (channels.update only operates on the authenticated user's own channel; no per-id mode — the API rejects updates on others' channels with 403/forbidden anyway).
+  - Flags: --description, --keywords, --country, --dry-run. RunE requires at least one of the three content flags via cmd.Flags().Changed() — bare invocation errors "at least one of --description, --keywords, --country must be provided" pre-API.
+  - Patch semantics: fetches current brandingSettings via channels.list(mine=true, parts=id+brandingSettings, MaxResults=1, 1 unit), overlays only the flags the user changed, sends a single channels.update with parts=brandingSettings (50 units). Total cost: 51 units.
+  - The title read is MANDATORY: the YouTube API requires brandingSettings.channel.title on every channels.update; without the read, a user passing only --country would clobber the title (the API would either reject or accept and silently break the channel). The 1-unit read is the price of safe patch semantics. Mirrors videos update / playlists update's pattern.
+  - Empty-string semantics: --description="", --keywords="", --country="" all clear the respective field. Implemented via ForceSendFields on ChannelSettings — by default the omitempty tag would strip an empty-string field from the JSON payload, leaving the existing value in place. Appending the field name to ForceSendFields makes the API receive an explicit empty string and clear it. Documented in --help.
+  - Empty resulting title rejected pre-update with "channel title cannot be empty (YouTube API requires a non-empty title on update)" (defensive — only possible if the existing channel somehow has no title).
+  - The channels.update API method only accepts parts=brandingSettings or invideoPromotion (per the generated SDK docs). We use brandingSettings, which is where description/keywords/country/title all live (under brandingSettings.channel). snippet.description and snippet.country exist on the read side but are NOT writable via channels.update — only the brandingSettings.channel mirror is.
+  - --dry-run uses shared printDryRun() helper: prints "DRY RUN: would update channel id=C title=\"T\" country=\"X\" (cost: 50 units)" on stderr (cost is the write portion only — the 1-unit read still happens to surface the current state, matching videos update / playlists update). Renders the merged FIELD/VALUE table on stdout (ID, TITLE, COUNTRY, KEYWORDS, DESCRIPTION); JSON output is the constructed *youtube.Channel with the merged brandingSettings.
+  - On success renders the same FIELD/VALUE table populated from the API's response (the updated brandingSettings round-trips). JSON output is the raw *youtube.Channel returned by the API per CLAUDE.md output convention.
+  - Auth note (in --help): "only the authenticated user's own channel can be updated."
+  - Verified: go build clean, go vet ./... clean, go test ./... pass (cache tests still 6/6, no new test files).
+    - `channels update --help` documents the 51-unit cost (1 list + 50 update), all three content flags, --dry-run, the empty-string-clears behavior, the country ISO code requirement, and the auth-must-be-own-channel note.
+    - `yt channels --help` lists `update` alongside `show` with the 51-unit cost called out in Short.
+    - Pre-API errors all fire before any API call:
+      - `channels update` (no flags) → exit 1, "at least one of --description, --keywords, --country must be provided".
+      - `channels update foo` (unexpected positional arg) → exit 1, "unknown command \"foo\" for \"yt channels update\"".
+    - Live dry-run: `channels update --country=FR --dry-run` against the authenticated account fetched the current branding (id=UC46JqQogrHULZavXV5zhXNA, title=gousse) and rendered "DRY RUN: would update channel id=UC46JqQogrHULZavXV5zhXNA title=\"gousse\" country=\"FR\" (cost: 50 units)" plus the merged FIELD/VALUE table — confirms the read+overlay path works end-to-end.
+  - Did NOT execute a real update against a live channel (would mutate the user's account); the dry-run path exercises every code path except svc.Channels.Update, which mirrors playlists update / videos update's already-tested update flow.
+  - Milestone 4 item 13 now complete (✅ in PRD). Next priorities per PRD Milestone 4: activity / comments / captions (item 14), ref categories|languages|regions (item 15).

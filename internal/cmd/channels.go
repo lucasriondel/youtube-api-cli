@@ -8,5 +8,6 @@ func newChannelsCmd() *cobra.Command {
 		Short: "Inspect and manage channels",
 	}
 	c.AddCommand(newChannelsShowCmd())
+	c.AddCommand(newChannelsUpdateCmd())
 	return c
 }
