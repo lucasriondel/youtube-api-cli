@@ -167,7 +167,7 @@ API methods: `list`, `insert`, `update`, `download`, `delete`.
 
 | Command | Status | Notes |
 |---|---|---|
-| `yt activity [--mine \| --channel <id>] [--since <date>]` | 📋 | Recent uploads/likes/etc. Useful for agents auditing changes. |
+| `yt activity [--mine \| --channel <id>] [--since <date>] [--max <n>]` | ✅ | 1 unit per page. Mutually exclusive `--mine` / `--channel`; one is required. `--since` accepts RFC3339 or YYYY-MM-DD (UTC midnight) and is passed as `publishedAfter`. `--max` defaults to 50 and caps total results across pages. Columns: PUBLISHED / TYPE / RESOURCE_ID / TITLE / CHANNEL. JSON output is the raw `[]*youtube.Activity` slice. Note: `activities.list` only surfaces a subset of activity types — recent-changes feed, not an audit log. |
 
 ---
 
@@ -259,7 +259,7 @@ The order below resolves the loose ordering in CLAUDE.md against the gaps above.
 11. ✅ `subs add` / `remove`
 12. ✅ `videos update` / `videos delete`
 13. ✅ `channels update`
-14. `activity`, `comments list/post/reply`, `captions list/download`
+14. 🚧 `activity` ✅, `comments list/post/reply` 📋, `captions list/download` 📋
 15. `ref categories|languages|regions`
 
 ### Out of scope (recorded so we don't re-litigate)

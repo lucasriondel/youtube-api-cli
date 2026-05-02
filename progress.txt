@@ -343,3 +343,26 @@
     - Live dry-run: `channels update --country=FR --dry-run` against the authenticated account fetched the current branding (id=UC46JqQogrHULZavXV5zhXNA, title=gousse) and rendered "DRY RUN: would update channel id=UC46JqQogrHULZavXV5zhXNA title=\"gousse\" country=\"FR\" (cost: 50 units)" plus the merged FIELD/VALUE table — confirms the read+overlay path works end-to-end.
   - Did NOT execute a real update against a live channel (would mutate the user's account); the dry-run path exercises every code path except svc.Channels.Update, which mirrors playlists update / videos update's already-tested update flow.
   - Milestone 4 item 13 now complete (✅ in PRD). Next priorities per PRD Milestone 4: activity / comments / captions (item 14), ref categories|languages|regions (item 15).
+
+2026-05-02: Implemented `yt activity [--mine | --channel <id>] [--since <date>] [--max <n>]` (Milestone 4, item 14a — first piece of activity/comments/captions bundle).
+  - New file: internal/cmd/activity.go
+  - Wired newActivityCmd() into root.go alongside auth/playlists/items/videos/liked/search/subs/channels/cache. Top-level command (not a group) — single API method, single command, mirrors `yt search`'s shape.
+  - Args: cobra.NoArgs. Source flags: --mine and --channel <id>. RunE enforces exactly one (mutex error if both, "provide either --mine or --channel <id>" if neither). --since <date> accepts RFC3339 or YYYY-MM-DD (interpreted as UTC midnight via time.Parse, normalized to RFC3339 before passing to PublishedAfter()). --max <int> default 50 caps total activities across pages; --max <= 0 errors pre-API.
+  - Quota: 1 unit per page (ytapi.CostList). 50 activities/page; --max>50 forces additional 1-unit calls. Documented in --help with note that activities.list "only surfaces a subset of activity types and may return fewer items than the channel actually produced — recent-changes feed, not an audit log" (the API has well-known coverage gaps; setting expectations up front).
+  - Pagination: same loop pattern as search/subs list — accumulates resp.Items into []*youtube.Activity until remaining <= 0 or NextPageToken empties. Per-page MaxResults clamped to min(remaining, 50).
+  - Parts: id+snippet+contentDetails. snippet gives type/title/channelTitle/publishedAt; contentDetails gives the per-type resourceId so the table can show what was uploaded/liked/subscribed-to.
+  - Columns: PUBLISHED / TYPE / RESOURCE_ID / TITLE / CHANNEL. PUBLISHED reformatted RFC3339 → YYYY-MM-DD UTC (matches videos show / subs list / channels show), falls back to raw on parse failure. TYPE comes from snippet.type ("upload", "like", "playlistItem", "subscription", "favorite", "comment", "recommendation", "bulletin", "social", "channelItem", "promotedItem"). RESOURCE_ID is extracted via activityResourceID() switch — handles all 11 contentDetails sub-types, returning videoId for video-shaped activities, channelId for subscription-shaped, etc. Empty when no resource (rare).
+  - JSON output is the raw []*youtube.Activity slice (per CLAUDE.md output convention — not a CLI-specific shape). Plain output is TSV mirroring the table columns. No --dry-run (read-only command, 1 unit — would be noise).
+  - Verified:
+    - go build clean, go vet ./... clean, go test ./... pass (cache tests still 6/6, no new test files).
+    - `yt --help` lists `activity` alongside other top-level commands with the 1-unit cost called out in Short.
+    - `yt activity --help` documents the 1-unit cost, --mine/--channel mutex, --since accepted formats (RFC3339 or YYYY-MM-DD), --max default, and the activities.list coverage caveat.
+    - Pre-API errors all fire before any API call:
+      - `activity` (no flags) → exit 1, "provide either --mine or --channel <id>".
+      - `activity --mine --channel UCfoo` → exit 1, "--mine is mutually exclusive with --channel".
+      - `activity --mine --since=garbage` → exit 1, "invalid --since \"garbage\": expected RFC3339 timestamp or YYYY-MM-DD date".
+      - `activity --mine --max=0` → exit 1, "--max must be > 0".
+    - Live API call: `activity --mine --max=5` returned 5 activities for the authenticated account with correct PUBLISHED/TYPE/RESOURCE_ID/TITLE/CHANNEL rendering — mix of "playlistItem" (video added to a public playlist) and "upload" types, RESOURCE_IDs are correct video ids in each case (e.g. 3xPhtb_7mQU, YlumI9nxY9s).
+    - `activity --mine --since=2025-10-01 --max=10` correctly filtered out the 2025-07-06 row that appeared without the filter — confirms publishedAfter wiring.
+    - `activity --mine --max=1 --json` returned the raw youtube#activity object including etag, snippet (channelId/channelTitle/description/publishedAt/thumbnails/title/type), and contentDetails.playlistItem.resourceId — confirms JSON is the unmodified API shape.
+  - Did NOT bundle `comments list/post/reply` or `captions list/download` into this task per the single-task constraint — those are the remaining Milestone 4 item 14 work and land in follow-up commits. PRD updated to reflect partial completion (activity ✅, comments 📋, captions 📋).
