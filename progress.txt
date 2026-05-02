@@ -298,3 +298,25 @@
       - `videos update "" --title=foo` → exit 1, "invalid video reference \"\": empty value".
       - `videos update "https://youtu.be/" --title=foo` → exit 1, "invalid video reference ...: could not extract video id from URL".
   - Did NOT bundle `videos delete` into this task per the single-task constraint — that's the second half of Milestone 4 item 12 and lands next. Did NOT execute a real update against a live video (would mutate the user's account); the dry-run path exercises every code path except svc.Videos.Update, which mirrors playlists update's already-tested update flow. Item 12 partially complete in PRD: videos update ✅, videos delete 🎯.
+
+2026-05-02: Implemented `yt videos delete <id>` (Milestone 4, item 12b) — completes Milestone 4 item 12.
+  - New file: internal/cmd/videos_delete.go
+  - Wired into videos.go subcommand list alongside `show`, `rate`, `rating`, `update`
+  - Args: <id-or-url>; cobra.ExactArgs(1). Reuses parseVideoID() so raw 11-char ids and watch?v=/youtu.be/shorts/embed/v URLs are all accepted; invalid refs (empty string, URLs missing the id segment) error pre-API.
+  - Flags: --yes (skip confirmation prompt), --dry-run (via shared addDryRunFlag).
+  - Quota cost: 1 (videos.list, parts=id+snippet, for the confirmation lookup) + 50 (videos.delete) = 51 units. Documented in --help via ytapi.CostList + ytapi.CostDelete.
+  - Pre-delete read: fetches snippet so the confirmation prompt can show the video title and a missing/inaccessible id errors out before any 50-unit call. Mirrors playlists delete's pattern. The 1-unit read is the price of safe interactive deletion (and matches the user's mental model — they should see what they're about to nuke).
+  - Default flow prompts on stderr ("About to delete video id=... title=\"...\". This cannot be undone.\nType 'yes' to confirm: "), reads from cmd.InOrStdin(), requires literal "yes" to proceed (any other input aborts cleanly with exit 1 / "aborted" before any delete call).
+  - --yes bypasses the prompt; --dry-run prints "DRY RUN: would delete video id=... title=\"...\" (cost: 50 units)" via printDryRun() helper (write portion only — the 1-unit read still happens to surface the title) and exits without calling delete.
+  - On success prints "Deleted video id=... title=\"...\"" to stdout.
+  - Auth note in --help: only videos owned by the authenticated account can be deleted; the YouTube API returns 403/forbidden for someone else's video. We don't pre-check ownership — letting the API surface that error keeps the code simple and avoids a second list call.
+  - No --json/--plain output structure: this is a fire-and-forget endpoint with no response payload (videos.delete returns 204 No Content); the success line is stable enough for agents (`grep "Deleted video id="`).
+  - Verified: go build clean, go vet ./... clean, go test ./... pass (cache tests still 6/6, no new test files).
+    - `videos delete --help` documents the 51-unit cost, --yes/--dry-run flags, the URL/id input forms, and the auth-must-own-video note.
+    - `yt videos --help` lists `delete` alongside `show`, `rate`, `rating`, `update` with the 50-unit cost called out in Short.
+    - Pre-API errors all fire before any API call:
+      - `videos delete` (no args) → exit 1, "accepts 1 arg(s), received 0".
+      - `videos delete ""` → exit 1, "invalid video reference \"\": empty value".
+      - `videos delete "https://youtu.be/"` → exit 1, "invalid video reference ...: could not extract video id from URL".
+  - Did NOT execute a real delete against a live video (would mutate the user's account); the dry-run + pre-API error paths exercise every code path except svc.Videos.Delete, which mirrors playlists delete's already-tested delete flow.
+  - Milestone 4 item 12 now fully complete (videos update ✅, videos delete ✅). Next priorities per PRD Milestone 4: channels update (item 13), activity / comments / captions (item 14), ref categories|languages|regions (item 15).

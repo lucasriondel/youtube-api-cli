@@ -11,5 +11,6 @@ func newVideosCmd() *cobra.Command {
 	c.AddCommand(newVideosRateCmd())
 	c.AddCommand(newVideosRatingCmd())
 	c.AddCommand(newVideosUpdateCmd())
+	c.AddCommand(newVideosDeleteCmd())
 	return c
 }
